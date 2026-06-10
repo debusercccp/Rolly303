@@ -1,0 +1,260 @@
+# AcidBadd 303
+
+A standalone synthesizer and **VST3 plugin** that emulates the **Roland TB‑303 Bass Line** — the squelchy, resonant mono‑synth that defined acid house and techno. Builds from a single codebase to a **Standalone app** and a **VST3 plugin** on both **Windows** and **Linux**.
+
+> This is a real‑time DSP *emulation* of the 303 voice (oscillator → diode‑ladder filter → decay envelope, plus accent & slide). It is not affiliated with or endorsed by Roland; "TB‑303" and "Roland" are trademarks of Roland Corporation and are used here only to describe the sound being emulated.
+
+---
+
+## Features
+
+- **One oscillator** — band‑limited **Sawtooth** or **Square**, exactly like the 303.
+- **4‑pole resonant low‑pass filter** with the classic diode‑ladder "squelch" and input drive.
+- **Decay envelope → filter sweep** (`Env Mod` + `Decay`): the core acid pluck on every note.
+- **Accent** — high‑velocity notes get extra brightness, resonance and punch via the accent bus.
+- **Slide** — overlapping (legato) notes glide in pitch, with the envelope *not* retriggering, just like the original.
+- **Built‑in 16‑step sequencer** with **per‑step pitch, gate, accent and slide** — the other half of what makes a 303 a 303.
+- **Tuning** (±12 semitones), **Cutoff**, **Resonance**, **Env Mod**, **Decay**, **Accent**, **Volume**.
+- **On‑screen keyboard** in the standalone app, plus full MIDI input in any DAW.
+- Cross‑platform: **Windows** and **Linux**, **Standalone + VST3**.
+
+### How to get the "acid" sound
+Turn **Resonance** up high, set **Cutoff** fairly low, raise **Env Mod**, and play a fast 16th‑note pattern. Use note **velocity ≥ ~80** (out of 127) to trigger **accents**, and **overlap two notes** (legato) to trigger a **slide**.
+
+---
+
+## Controls
+
+| Control     | Range          | What it does                                                        |
+|-------------|----------------|---------------------------------------------------------------------|
+| Waveform    | Saw / Square   | Oscillator shape.                                                   |
+| Tuning      | −12…+12 st     | Master tuning.                                                       |
+| Cutoff      | 30…6000 Hz     | Base filter cutoff frequency.                                        |
+| Resonance   | 0…1            | Filter resonance / squelch.                                          |
+| Env Mod     | 0…1            | How much the decay envelope opens the filter.                       |
+| Decay       | 30…2000 ms     | Filter‑envelope decay time (length of the pluck).                   |
+| Accent      | 0…1            | Intensity of accented notes (velocity ≥ ~80).                       |
+| Volume      | 0…1            | Output level.                                                        |
+
+---
+
+## The 16‑step sequencer
+
+The bottom panel is a classic 303‑style step sequencer. It drives the synth
+itself, so it works in the **standalone app and in any DAW**.
+
+### Transport (the row above the grid)
+
+| Control | What it does |
+|--------|--------------|
+| **RUN**    | Start / stop the pattern. When off, the synth plays from MIDI / the on‑screen keyboard instead. |
+| **SYNC**   | Lock tempo **and bar position** to your DAW's transport. Leave off to use the internal Tempo knob (and for the standalone app). |
+| **TEMPO**  | Internal tempo in BPM (used when SYNC is off). |
+| **ROOT**   | The root note the pattern is built from (C…B). |
+| **OCTAVE** | Shift the whole pattern up/down by octaves. |
+
+### Per‑step controls (the grid)
+
+Each of the 16 columns is one 16th‑note step with four controls stacked top to bottom:
+
+- **PITCH** (vertical slider) — semitone offset for that step, `0…24` (two octaves) above Root.
+- **GATE** — note on/off. Turn it off to make a rest.
+- **ACCENT** — gives that step extra volume, brightness and bite (the accent bus).
+- **SLIDE** — glides *from this step into the next one* without re‑plucking the
+  envelope, producing the signature 303 portamento.
+
+The currently playing step is highlighted in orange while the sequencer runs.
+The whole pattern (and every knob) is saved with your DAW project and restored on reload.
+
+### Quick start
+Press **RUN**. The synth ships with a default acid riff so you'll hear sound
+immediately — then drag the PITCH sliders, toggle some ACCENT/SLIDE buttons,
+and dial in **Cutoff / Resonance / Env Mod / Decay** to taste.
+
+---
+
+## Installation — Pre‑built binaries
+
+If you were given a release archive, copy the files to the right place:
+
+### Windows — step by step
+
+You have two ways to use AcidBadd 303 on Windows: as a **standalone app** (no DAW needed)
+or as a **VST3 plugin** inside a DAW.
+
+**A) Standalone app (easiest)**
+1. Unzip the release archive (right‑click → *Extract All…*).
+2. Find **`AcidBadd 303.exe`**.
+3. Double‑click it to run. *(If Windows SmartScreen shows a blue "Windows protected your
+   PC" box because the app is unsigned, click **More info → Run anyway**.)*
+4. Click the **Options/⚙ (audio settings)** button and choose your sound output device,
+   then play the on‑screen keyboard or a connected MIDI keyboard.
+
+**B) VST3 plugin (use it in a DAW)**
+1. Unzip the release archive.
+2. Copy the **`AcidBadd 303.vst3`** item into the standard Windows VST3 folder:
+   ```
+   C:\Program Files\Common Files\VST3\
+   ```
+   - Open File Explorer, paste that path into the address bar, press **Enter**.
+   - If the `VST3` folder does not exist, create it.
+   - Copying here needs administrator rights — click **Continue** if Windows asks.
+3. Open your DAW (Ableton Live, FL Studio, Cubase, Reaper, Bitwig, Studio One, etc.)
+   and **rescan / refresh** the plugin list:
+   - *FL Studio:* Options → Manage plugins → **Find plugins**.
+   - *Ableton Live:* Preferences → Plug‑Ins → turn on **Use VST3 System Folders**, then **Rescan**.
+   - *Reaper:* Preferences → Plug‑ins → VST → **Re‑scan**.
+4. Add **AcidBadd 303** to a MIDI/instrument track and play it.
+
+> **Requirements:** 64‑bit Windows 10 or 11. The standalone app needs no installer —
+> it is a single `.exe`. To uninstall, just delete the files you copied.
+
+### Linux
+- **VST3**: copy the `AcidBadd 303.vst3` folder to
+  `~/.vst3/`   (create the folder if it does not exist)
+- **Standalone**: copy the `AcidBadd 303` executable anywhere and run it.
+
+Then rescan plugins in your DAW (Ableton, Bitwig, Reaper, FL Studio, Ardour, etc.).
+
+---
+
+## Building from source
+
+The project is self‑contained: CMake downloads the JUCE framework automatically on first configure (an internet connection is required for that first build).
+
+### 1. Prerequisites
+
+**All platforms**
+- [CMake](https://cmake.org/download/) ≥ 3.22
+- A C++17 compiler
+
+**Windows**
+- Visual Studio 2022 (Desktop development with C++), or Build Tools for VS 2022.
+
+**Linux** (Debian/Ubuntu names shown — install the equivalents on other distros)
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake git pkg-config \
+    libasound2-dev libjack-jackd2-dev \
+    libfreetype6-dev libfontconfig1-dev \
+    libx11-dev libxext-dev libxinerama-dev libxrandr-dev \
+    libxcursor-dev libxcomposite-dev libgl1-mesa-dev
+```
+
+### 2. Configure & build
+
+```bash
+# from the project root (the folder containing this README)
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j
+```
+
+The first configure step clones JUCE and may take a few minutes. Subsequent builds are fast.
+
+> **Tip:** If you already have JUCE checked out locally, skip the download with:
+> ```bash
+> cmake -B build -DCMAKE_BUILD_TYPE=Release -DJUCE_SOURCE_DIR=/path/to/JUCE
+> ```
+
+### 3. Where the built files land
+
+After a successful build, look under `build/AcidBadd_artefacts/Release/`:
+
+```
+build/AcidBadd_artefacts/Release/
+├── Standalone/
+│   └── AcidBadd 303        (or "AcidBadd 303.exe" on Windows)
+└── VST3/
+    └── AcidBadd 303.vst3
+```
+
+Copy the VST3 to the plugin folders listed in **Installation** above, or run the
+standalone directly.
+
+---
+
+## Running the standalone app
+
+Just launch the `AcidBadd 303` executable.
+
+- The first time, open the app's **audio settings** (gear / "Options" button) to pick
+  your output device and, on Linux, your ALSA or JACK device.
+- Play with a connected **MIDI keyboard**, or click the **on‑screen keyboard** at the
+  bottom of the window.
+
+### Linux on a pure‑Wayland compositor (niri, river, Sway‑without‑Xwayland, …)
+
+JUCE apps are **X11 apps**. On GNOME/KDE/XFCE this is invisible — Xwayland is already
+running. But on a minimal Wayland compositor with **no X server running**, launching the
+app prints:
+
+```
+Authorization required, but no authorization protocol specified
+```
+
+…and no window appears. That just means there is no X display to draw on. Two fixes:
+
+**Easiest — use the included launcher.** It starts a temporary Xwayland (a single
+window that hosts the synth) and cleans it up on exit:
+
+```bash
+./run-linux.sh
+```
+
+**Manual one‑liner** (equivalent):
+
+```bash
+WAYLAND_DISPLAY=wayland-1 Xwayland :12 -ac -decorate -geometry 960x660 &
+DISPLAY=:12 "./build/AcidBadd_artefacts/Release/Standalone/AcidBadd 303"
+```
+
+> Needs the `xwayland` package: `sudo apt install xwayland`.
+
+**Best, permanent fix —** install [`xwayland‑satellite`](https://github.com/Supreeeme/xwayland-satellite)
+so X apps integrate seamlessly as native windows (recommended on niri):
+
+```bash
+cargo install xwayland-satellite       # or your distro's package
+xwayland-satellite :0 &                 # add this to your compositor's startup
+export DISPLAY=:0                        # export this in your shell profile
+```
+
+After that, every X11 app (this synth, and X11 plugin GUIs inside Linux DAWs) just works,
+and you can run `AcidBadd 303` directly with no wrapper.
+
+---
+
+## Project layout
+
+```
+acidBadd/
+├── CMakeLists.txt          # Build script (fetches JUCE, defines the plugin)
+├── README.md               # This file
+└── source/
+    ├── TB303Engine.h       # The DSP: oscillator, ladder filter, envelopes, voice
+    ├── PluginProcessor.h
+    ├── PluginProcessor.cpp # Parameters, MIDI handling, audio rendering
+    ├── PluginEditor.h
+    └── PluginEditor.cpp    # The 303‑style GUI + on‑screen keyboard
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|--------|-----|
+| First `cmake -B build` fails to download JUCE | Check your internet connection / proxy, or pass `-DJUCE_SOURCE_DIR=` pointing at a local JUCE checkout. |
+| Linux build errors about missing headers | Re‑check the `apt install` list above; ALSA/X11/freetype `-dev` packages are required. |
+| DAW doesn't see the plugin | Confirm the `.vst3` is in the correct folder and trigger a plugin **rescan**. VST3 only (no VST2). |
+| `Authorization required, but no authorization protocol specified` and no window (Linux) | You're on a pure‑Wayland compositor with no X server. Use `./run-linux.sh`, or install `xwayland-satellite`. See *Linux on a pure‑Wayland compositor* above. |
+| No sound in standalone | Open audio settings and select a valid output device / sample rate. |
+| Crackle at very high resonance + cutoff | Expected near self‑oscillation; back off Resonance slightly. |
+
+---
+
+## License
+
+You own this code. JUCE is downloaded at build time under its own license
+(GPLv3 or a paid JUCE license — see <https://juce.com>); make sure your
+distribution complies with JUCE's terms.

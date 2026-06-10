@@ -1,0 +1,2 @@
+# Hashes of file build rules.
+6453667439abbcfe7c076c313818e704 AcidBadd_artefacts/JuceLibraryCode/JuceHeader.h
