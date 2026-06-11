@@ -3,6 +3,8 @@
 build/
 cmake-build-*/
 
+.claude
+
 # IDE / editor
 .vscode/
 .idea/
