@@ -7,24 +7,61 @@
 //==============================================================================
 //  AcidBadd 303 — a faithful emulation of the Roland TB-303 mono voice.
 //
-//  Signal path (classic 303 topology):
+//  Signal path (matching the original circuit topology):
 //
-//      MIDI ─▶ Slide(glide) ─▶ Oscillator(saw/square) ─▶ Diode-ladder LPF ─▶ VCA ─▶ out
-//                                                            ▲                ▲
-//                                       Env Mod × FilterEnv ─┘   AmpEnv ──────┘
+//      MIDI ─▶ Slide(60ms glide) ─▶ VCO(saw/square) ─▶ HP 44Hz ─▶ diode ladder
+//              ─▶ VCA ─▶ HP 24Hz ─▶ out
 //
-//  The "acid" character comes from a single decay envelope that sweeps the
-//  resonant low-pass filter on every note, plus per-note ACCENT (extra
-//  punch/brightness) and SLIDE (portamento between legato notes).
+//  Hardware behaviours reproduced here:
 //
-//  This is a real-time DSP model, not a SPICE circuit reproduction, but it
-//  reproduces the musically important behaviour of the original instrument.
+//   * Diode-ladder LPF with a ~150 Hz high-pass in the resonance feedback
+//     path — the reason a real 303's resonance thins the bass instead of
+//     booming on low notes.
+//   * Main Envelope Generator (MEG): fixed ~3 ms attack, exponential decay
+//     set by the DECAY knob (200 ms – 2 s on the hardware).
+//   * VCA envelope: fixed ~3 ms attack and a slow ~3.5 s decay that keeps
+//     falling even while the gate is held (the 303 has no sustain), with a
+//     fast cutoff when the gate ends.
+//   * ACCENT: forces the MEG to a fast fixed decay (~200 ms), adds the MEG
+//     to the VCA level (punch), and drives the filter through the accent
+//     "sweep" capacitor. The capacitor charges through the RESONANCE pot, so
+//     at high resonance repeated accents stack up charge — the famous
+//     building "wow wow" sweep.
+//   * SLIDE: ~60 ms exponential portamento, envelopes not retriggered.
+//
+//  This is a real-time DSP model, not a SPICE netlist, but every musically
+//  audible mechanism of the original instrument is modelled.
 //==============================================================================
 
 namespace acid
 {
 
 constexpr double kPi = 3.14159265358979323846;
+
+//==============================================================================
+// TPT (zero-delay) one-pole, usable as low-pass or high-pass.
+//==============================================================================
+struct OnePoleTPT
+{
+    void setSampleRate (double sr) noexcept { fs = sr; update(); }
+    void setCutoff (double hz)     noexcept { fc = hz; update(); }
+    void reset()                   noexcept { s = 0.0; }
+
+    inline double lp (double x) noexcept
+    {
+        const double v = G * (x - s);
+        const double y = v + s;
+        s = y + v;
+        return y;
+    }
+    inline double hp (double x) noexcept { return x - lp (x); }
+
+    double G = 0.0, s = 0.0;
+
+private:
+    void update() noexcept { const double g = std::tan (kPi * fc / fs); G = g / (1.0 + g); }
+    double fs = 44100.0, fc = 100.0;
+};
 
 //==============================================================================
 // PolyBLEP band-limited oscillator (saw / square), as on the 303's single VCO.
@@ -79,29 +116,34 @@ private:
 };
 
 //==============================================================================
-// Decaying envelope. Fast (near-instant) attack to 1.0 then exponential decay.
-// Used for both the filter sweep (decays fully) and the amplitude (with a
-// gate hold so the note rings while a key is down).
+// 303-style envelope: near-instant linear attack, then exponential decay.
+//
+//  * Filter env (MEG): ignores the gate — it decays away even while the key
+//    is held, which is what makes every 303 note a pluck.
+//  * Amp env: decays slowly (~3.5 s) while gated — the 303 has no sustain
+//    level — and switches to a fast release the moment the gate drops.
 //==============================================================================
 class Envelope
 {
 public:
     void setSampleRate (double sr) noexcept { sampleRate = sr; recalc(); }
 
-    // Filter env: typically does not sustain (decays to 0 while held).
-    // Amp env: sustains at 1.0 until note-off, then releases quickly.
-    void setTimes (double attackMs, double decayMs, bool sustainWhileGated) noexcept
+    // gateSensitive = amp-env behaviour (fast release on gate-off).
+    void configure (double attackMs, double decayMs, double releaseMs, bool gateSensitive_) noexcept
     {
         attackSamples = std::max (1.0, attackMs * 0.001 * sampleRate);
-        decayMs_ = decayMs;
-        sustain = sustainWhileGated;
+        decayMs_      = decayMs;
+        releaseMs_    = releaseMs;
+        gateSensitive = gateSensitive_;
         recalc();
     }
 
-    void noteOn  (bool retrigger) noexcept
+    void setDecay (double decayMs) noexcept { decayMs_ = decayMs; recalc(); }
+
+    void noteOn (bool retrigger) noexcept
     {
         gate = true;
-        if (retrigger) { stage = Stage::Attack; }   // slide/legato skips retrigger
+        if (retrigger) stage = Stage::Attack;   // slide/legato skips retrigger
     }
     void noteOff() noexcept { gate = false; }
 
@@ -119,28 +161,21 @@ public:
                 break;
 
             case Stage::Decay:
-                if (sustain && gate)
-                    value = 1.0;                       // hold while key down
-                else
-                    value *= decayCoef;                // exponential fall to 0
-                if (value < 1.0e-4 && !(sustain && gate)) { value = 0.0; stage = Stage::Idle; }
+                value *= (gateSensitive && ! gate) ? releaseCoef : decayCoef;
+                if (value < 1.0e-4) { value = 0.0; stage = Stage::Idle; }
                 break;
         }
-
-        // Amp env releases when the gate drops even if "sustain" was set.
-        if (sustain && !gate && stage == Stage::Decay)
-            value *= releaseCoef;
-
         return (float) value;
     }
 
-    bool isActive() const noexcept { return stage != Stage::Idle || (sustain && gate); }
+    float current() const noexcept { return (float) value; }
+    bool isActive() const noexcept { return stage != Stage::Idle; }
 
 private:
     void recalc() noexcept
     {
-        decayCoef   = std::exp (-1.0 / std::max (1.0, decayMs_ * 0.001 * sampleRate));
-        releaseCoef = std::exp (-1.0 / std::max (1.0, 8.0     * 0.001 * sampleRate));
+        decayCoef   = std::exp (-1.0 / std::max (1.0, decayMs_   * 0.001 * sampleRate));
+        releaseCoef = std::exp (-1.0 / std::max (1.0, releaseMs_ * 0.001 * sampleRate));
     }
 
     enum class Stage { Idle, Attack, Decay };
@@ -148,49 +183,69 @@ private:
     double sampleRate = 44100.0;
     double value = 0.0;
     double attackSamples = 4.0;
-    double decayMs_ = 300.0;
+    double decayMs_ = 300.0, releaseMs_ = 8.0;
     double decayCoef = 0.999, releaseCoef = 0.99;
-    bool   sustain = false, gate = false;
+    bool   gateSensitive = false, gate = false;
 };
 
 //==============================================================================
-// 4-pole resonant low-pass — the famous 303 "diode ladder" squelch.
+// The 303 diode-ladder low-pass.
 //
-// Topology-Preserving-Transform (zero-delay-feedback) ladder filter after
-// Vadim Zavalishin, "The Art of VA Filter Design". Four TPT one-pole stages
-// with a resonance feedback path, solved with the correct instantaneous
-// (implicit) feedback so it stays stable even at high resonance and cutoff.
+// Four TPT one-pole stages solved with zero-delay (implicit) feedback, after
+// Vadim Zavalishin, "The Art of VA Filter Design" — plus the 303's defining
+// twist: a ~150 Hz high-pass filter in the resonance feedback path. The
+// high-pass removes low frequencies from the feedback, so resonance squelches
+// the mids/highs but never booms the bass, exactly like the hardware.
+//
+// Because the feedback high-pass is itself a TPT one-pole, its contribution
+// splits into a term proportional to the current output (folded into the
+// implicit solve) plus a known state term — so the loop is still solved
+// exactly. The resolved loop input is soft-clipped, which both emulates the
+// diode nonlinearity and keeps self-oscillation bounded.
 //==============================================================================
-class LadderFilter
+class DiodeLadder
 {
 public:
-    void setSampleRate (double sr) noexcept { sampleRate = sr; }
-    void reset() noexcept { s1 = s2 = s3 = s4 = 0.0; }
+    void setSampleRate (double sr) noexcept
+    {
+        sampleRate = sr;
+        fbHp.setSampleRate (sr);
+        fbHp.setCutoff (150.0);          // resonance feedback high-pass (hardware trait)
+    }
 
-    // cutoff in Hz, resonance 0..1 (≈1 reaches self-oscillation)
+    void reset() noexcept { s1 = s2 = s3 = s4 = 0.0; fbHp.reset(); }
+
+    // cutoff in Hz, resonance 0..1 (1 reaches self-oscillation)
     void setParams (double cutoffHz, double resonance) noexcept
     {
         cutoffHz = std::clamp (cutoffHz, 20.0, sampleRate * 0.49);
         const double g = std::tan (kPi * cutoffHz / sampleRate);   // prewarped
         G = g / (1.0 + g);                                          // TPT one-pole coeff
-        // Feedback must stay below 4 (the self-oscillation limit) for stability.
-        // 3.95 gives a very high, squelchy resonance without diverging.
-        k = std::clamp (resonance, 0.0, 1.0) * 3.95;
+        // The feedback high-pass steals loop gain, so k may go slightly past
+        // the linear self-oscillation limit of 4; the loop soft-clip bounds it.
+        k = std::clamp (resonance, 0.0, 1.0) * 4.2;
     }
 
-    inline float process (float input, float drive) noexcept
+    inline float process (float input) noexcept
     {
-        const double x  = std::tanh (input * (1.0 + drive));        // input drive = growl
+        const double x  = std::tanh ((double) input);               // diode input stage
         const double a  = G;
         const double a2 = a * a, a3 = a2 * a, a4 = a3 * a;
 
-        // Solve the zero-delay feedback: out4 = (a^4 x + B) / (1 + k a^4)
+        // Feedback = k * HP(out4). Within this sample, HP(out4) = (1-Gfb)*(out4 - sFb),
+        // so the loop sees an effective gain keff plus a known offset from the HP state.
+        const double keff = k * (1.0 - fbHp.G);
+        const double xin  = x + keff * fbHp.s;
+
+        // Solve the zero-delay feedback: out4 = (a^4 xin + B) / (1 + keff a^4)
         const double B    = a3 * (1.0 - a) * s1
                           + a2 * (1.0 - a) * s2
                           + a  * (1.0 - a) * s3
                           +      (1.0 - a) * s4;
-        const double out4 = (a4 * x + B) / (1.0 + k * a4);
-        const double u    = x - k * out4;                           // filter input w/ feedback
+        const double out4 = (a4 * xin + B) / (1.0 + keff * a4);
+
+        // Resolved ladder input, soft-clipped (diode limiting / bounded self-osc).
+        const double u = std::tanh (xin - keff * out4);
 
         // Run the four stages forward with that input and update the states.
         const double v1 = a * (u  - s1); const double o1 = v1 + s1; s1 = o1 + v1;
@@ -198,6 +253,7 @@ public:
         const double v3 = a * (o2 - s3); const double o3 = v3 + s3; s3 = o3 + v3;
         const double v4 = a * (o3 - s4); const double o4 = v4 + s4; s4 = o4 + v4;
 
+        fbHp.lp (o4);                                               // advance the feedback HP
         return (float) o4;
     }
 
@@ -205,6 +261,7 @@ private:
     double sampleRate = 44100.0;
     double G = 0.0, k = 0.0;
     double s1 = 0.0, s2 = 0.0, s3 = 0.0, s4 = 0.0;
+    OnePoleTPT fbHp;
 };
 
 //==============================================================================
@@ -217,13 +274,19 @@ public:
     {
         Oscillator::Wave wave = Oscillator::Wave::Saw;
         float tuningSemis = 0.0f;   // -12..+12
-        float cutoffHz    = 500.0f; // base cutoff
+        float cutoffHz    = 750.0f; // base cutoff (hardware: ~250..2400 Hz)
         float resonance   = 0.7f;   // 0..1
         float envMod      = 0.6f;   // 0..1  filter env depth
-        float decayMs     = 300.0f; // filter env decay
+        float decayMs     = 400.0f; // MEG decay (hardware: 200..2000 ms)
         float accent      = 0.6f;   // 0..1  accent intensity
         float volume      = 0.8f;   // linear gain
     };
+
+    // Hardware timing constants
+    static constexpr double kAccentDecayMs = 200.0;   // accent forces fast MEG decay
+    static constexpr double kAmpDecayMs    = 3500.0;  // VCA env decay (no sustain!)
+    static constexpr double kAmpReleaseMs  = 8.0;     // VCA gate-off
+    static constexpr double kSlideMs       = 60.0;    // fixed slide time constant
 
     void prepare (double sr)
     {
@@ -232,14 +295,25 @@ public:
         filter.setSampleRate (sr);
         ampEnv.setSampleRate (sr);
         filtEnv.setSampleRate (sr);
+        preHp.setSampleRate (sr);  preHp.setCutoff (44.5);   // pre-filter coupling cap
+        postHp.setSampleRate (sr); postHp.setCutoff (24.0);  // output coupling cap
         filter.reset();
+        preHp.reset();
+        postHp.reset();
         osc.reset();
         heldNotes.clear();
         glideFreq = targetFreq = 110.0;
-        ampEnv.setTimes (1.0, 0.0, /*sustain*/ true);
+        accentCap = 0.0;
+        ampEnv.configure (3.0, kAmpDecayMs, kAmpReleaseMs, /*gateSensitive*/ true);
+        updateAccentCapCoefs();
     }
 
-    void setParams (const Params& p) { params = p; osc.setWave (p.wave); }
+    void setParams (const Params& p)
+    {
+        params = p;
+        osc.setWave (p.wave);
+        updateAccentCapCoefs();
+    }
 
     void noteOn (int midiNote, float velocity)
     {
@@ -261,6 +335,7 @@ public:
         if (heldNotes.empty())
         {
             ampEnv.noteOff();
+            filtEnv.noteOff();
         }
         else
         {
@@ -273,6 +348,7 @@ public:
     {
         heldNotes.clear();
         ampEnv.noteOff();
+        filtEnv.noteOff();
     }
 
     inline float renderSample() noexcept
@@ -282,25 +358,35 @@ public:
         osc.setFrequency (glideFreq);
 
         // --- envelopes ----------------------------------------------------------
-        const float a = ampEnv.process();
+        const float a  = ampEnv.process();
         const float fe = filtEnv.process();
 
-        // Accent boosts brightness, env depth and loudness, like the 303 accent bus
-        const float accAmt   = currentAccent ? params.accent : 0.0f;
-        const float envDepth = params.envMod * (1.0f + 1.6f * accAmt);
-        const float reso     = std::min (1.0f, params.resonance + 0.25f * accAmt);
-        const float drive    = 0.3f + 1.2f * accAmt;
+        // --- accent sweep capacitor ----------------------------------------------
+        // On accented notes the MEG is routed (scaled by the ACCENT knob) into an
+        // R/C network whose charge path runs through the RESONANCE pot. Low reso:
+        // the cap charges fast, accent is just a brighter pluck. High reso: the
+        // cap smooths the sweep and keeps charge between closely-spaced accents,
+        // so the sweep builds over consecutive notes — the "wow wow" effect.
+        const float  accAmt = currentAccent ? params.accent : 0.0f;
+        const double target = (double) (accAmt * fe);
+        accentCap += (target - accentCap) * (target > accentCap ? capChargeCoef
+                                                                : capDischargeCoef);
 
-        // filter env (exponential in octaves) sweeps the cutoff
-        const double sweep  = std::pow (2.0, (double) (envDepth * fe) * 6.5);
-        const double cutoff = params.cutoffHz * sweep;
-        filter.setParams (cutoff, reso);
+        // --- cutoff: MEG sweep (in octaves) + accent sweep ------------------------
+        const double envOct = (double) params.envMod * fe * 4.3;
+        const double accOct = accentCap * 3.0;
+        const double cutoff = params.cutoffHz * std::pow (2.0, envOct + accOct);
+        filter.setParams (cutoff, params.resonance);
 
-        // --- oscillator -> filter -> VCA ---------------------------------------
+        // --- oscillator -> HP -> diode ladder -> VCA -> HP ------------------------
         float s = osc.process();
-        s = filter.process (s, drive);
-        s *= a * (1.0f + 0.7f * accAmt) * params.volume;
-        return s;
+        s = (float) preHp.hp (s);
+        s = filter.process (s);
+
+        // Accent adds the (fast-decay) MEG to the VCA level: the accent "punch".
+        const float vca = a * (1.0f + 1.3f * accAmt * fe);
+        s = (float) postHp.hp (s * vca);
+        return s * params.volume;
     }
 
     bool isActive() const noexcept { return ampEnv.isActive(); }
@@ -313,24 +399,37 @@ private:
         if (! slide)
             glideFreq = targetFreq;                       // hard pitch jump
 
-        // slide time ≈ 60 ms (the fixed 303 slide); fast when not sliding
-        const double slideMs = slide ? 60.0 : 1.0;
+        const double slideMs = slide ? kSlideMs : 1.0;
         glideCoef = 1.0 - std::exp (-1.0 / (slideMs * 0.001 * sampleRate));
 
+        // Accent overrides the DECAY knob with a fast fixed decay (hardware trait).
+        filtEnv.configure (3.0, accented ? kAccentDecayMs : (double) params.decayMs,
+                           kAccentDecayMs, /*gateSensitive*/ false);
+
         // On a slide (legato) the 303 does NOT retrigger its envelopes.
-        ampEnv.setTimes (1.0, 0.0, true);
-        filtEnv.setTimes (3.0, params.decayMs, /*sustain*/ false);
         ampEnv.noteOn  (! slide);
         filtEnv.noteOn (! slide);
     }
 
-    Params       params;
-    Oscillator   osc;
-    LadderFilter filter;
-    Envelope     ampEnv, filtEnv;
+    void updateAccentCapCoefs() noexcept
+    {
+        // Charge time constant grows with the resonance pot (1 ms .. ~100 ms);
+        // discharge is slow (~250 ms) so charge survives between fast accents.
+        const double r = (double) params.resonance;
+        const double tauCharge = 0.001 + 0.1 * r * r;
+        capChargeCoef    = 1.0 - std::exp (-1.0 / (tauCharge * sampleRate));
+        capDischargeCoef = 1.0 - std::exp (-1.0 / (0.25 * sampleRate));
+    }
+
+    Params      params;
+    Oscillator  osc;
+    DiodeLadder filter;
+    Envelope    ampEnv, filtEnv;
+    OnePoleTPT  preHp, postHp;
 
     double sampleRate = 44100.0;
     double targetFreq = 110.0, glideFreq = 110.0, glideCoef = 1.0;
+    double accentCap = 0.0, capChargeCoef = 1.0, capDischargeCoef = 0.01;
     bool   currentAccent = false;
 
     std::vector<int> heldNotes;

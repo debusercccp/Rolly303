@@ -9,10 +9,11 @@ A standalone synthesizer and **VST3 plugin** that emulates the **Roland TB‑303
 ## Features
 
 - **One oscillator** — band‑limited **Sawtooth** or **Square**, exactly like the 303.
-- **4‑pole resonant low‑pass filter** with the classic diode‑ladder "squelch" and input drive.
-- **Decay envelope → filter sweep** (`Env Mod` + `Decay`): the core acid pluck on every note.
-- **Accent** — high‑velocity notes get extra brightness, resonance and punch via the accent bus.
-- **Slide** — overlapping (legato) notes glide in pitch, with the envelope *not* retriggering, just like the original.
+- **Diode‑ladder low‑pass filter** with a high‑pass in the resonance feedback path — the hardware trait that makes 303 resonance squelch the mids instead of booming the bass.
+- **Decay envelope → filter sweep** (`Env Mod` + `Decay`): the core acid pluck on every note. Knob ranges match the hardware (cutoff ≈ 250 Hz–2.4 kHz, decay 200 ms–2 s).
+- **No‑sustain VCA envelope** — fixed ~3 ms attack and a slow ~3.5 s decay that keeps falling while a key is held, just like the original.
+- **Accent** — high‑velocity notes force a fast fixed envelope decay (~200 ms), add punch to the VCA, and drive the filter through the accent **sweep capacitor**: its charging runs through the resonance pot, so at high resonance repeated accents build up the famous "wow‑wow" sweep.
+- **Slide** — overlapping (legato) notes glide in pitch over the 303's fixed ~60 ms, with the envelope *not* retriggering, just like the original.
 - **Built‑in 16‑step sequencer** with **per‑step pitch, gate, accent and slide** — the other half of what makes a 303 a 303.
 - **Tuning** (±12 semitones), **Cutoff**, **Resonance**, **Env Mod**, **Decay**, **Accent**, **Volume**.
 - **On‑screen keyboard** in the standalone app, plus full MIDI input in any DAW.
@@ -27,12 +28,12 @@ Turn **Resonance** up high, set **Cutoff** fairly low, raise **Env Mod**, and pl
 
 | Control     | Range          | What it does                                                        |
 |-------------|----------------|---------------------------------------------------------------------|
-| Waveform    | Saw / Square   | Oscillator shape.                                                   |
+| Waveform    | Saw / Square   | Oscillator shape (slide switch, like the panel).                    |
 | Tuning      | −12…+12 st     | Master tuning.                                                       |
-| Cutoff      | 30…6000 Hz     | Base filter cutoff frequency.                                        |
-| Resonance   | 0…1            | Filter resonance / squelch.                                          |
+| Cut Off Freq| 250…2400 Hz    | Base filter cutoff (hardware pot range).                            |
+| Resonance   | 0…1            | Filter resonance / squelch. Also slows the accent sweep cap.        |
 | Env Mod     | 0…1            | How much the decay envelope opens the filter.                       |
-| Decay       | 30…2000 ms     | Filter‑envelope decay time (length of the pluck).                   |
+| Decay       | 200…2000 ms    | Filter‑envelope decay (hardware pot range). Accents override it.    |
 | Accent      | 0…1            | Intensity of accented notes (velocity ≥ ~80).                       |
 | Volume      | 0…1            | Output level.                                                        |
 

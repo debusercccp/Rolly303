@@ -72,6 +72,27 @@ private:
 };
 
 //==============================================================================
+// TB-303 front-panel look: black knobs with a white pointer over a printed
+// 0–10 tick scale, red-LED buttons, and a saw/square slide switch — drawn in
+// the style of the original hardware panel.
+class TB303LookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    TB303LookAndFeel();
+
+    void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h,
+                           float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
+                           juce::Slider&) override;
+
+    void drawLinearSlider (juce::Graphics&, int x, int y, int w, int h,
+                           float sliderPos, float minSliderPos, float maxSliderPos,
+                           juce::Slider::SliderStyle, juce::Slider&) override;
+
+    void drawToggleButton (juce::Graphics&, juce::ToggleButton&,
+                           bool highlighted, bool down) override;
+};
+
+//==============================================================================
 class AcidBaddEditor : public juce::AudioProcessorEditor,
                        private juce::Timer
 {
@@ -115,29 +136,32 @@ private:
 
     AcidBaddProcessor& processor;
 
-    // synth controls
-    Knob tuning, cutoff, reso, envmod, decay, accent, volume;
-    juce::ComboBox waveBox;
-    juce::Label    waveLabel;
-    std::unique_ptr<ComboAttachment> waveAttach;
+    // synth controls (panel order of the original: tempo, waveform,
+    // tuning, cut off freq, resonance, env mod, decay, accent, volume)
+    Knob tempo, tuning, cutoff, reso, envmod, decay, accent, volume;
+    juce::Slider waveSwitch;
+    juce::Label  waveLabel;
+    std::unique_ptr<SliderAttachment> waveAttach;
 
     // sequencer transport
-    juce::ToggleButton playButton { "RUN" }, syncButton { "SYNC" };
-    juce::Slider       tempoSlider, octaveSlider;
+    juce::ToggleButton playButton { "RUN/STOP" }, syncButton { "SYNC" };
+    juce::Slider       octaveSlider;
     juce::ComboBox     rootBox;
-    juce::Label        tempoLabel, rootLabel, octaveLabel;
+    juce::Label        rootLabel, octaveLabel;
     std::unique_ptr<ButtonAttachment> playAtt, syncAtt;
-    std::unique_ptr<SliderAttachment> tempoAtt, octaveAtt;
+    std::unique_ptr<SliderAttachment> octaveAtt;
     std::unique_ptr<ComboAttachment>  rootAtt;
 
     // sequencer grid
     std::array<StepUI, AcidBaddProcessor::kNumSteps> steps;
     juce::Label rowLabelPitch, rowLabelGate, rowLabelAccent, rowLabelSlide;
-    juce::Rectangle<int> gridArea;     // for drawing the play-head highlight
+    juce::Rectangle<int> gridArea;     // for drawing the play-head LEDs
+    juce::Rectangle<int> panelArea;    // silver face (drawn in paint)
+    juce::Rectangle<int> seqArea;      // black sequencer section
     int highlightStep = -1;
 
     juce::MidiKeyboardComponent keyboard;
-    juce::LookAndFeel_V4 lnf;
+    TB303LookAndFeel lnf;
 
     CursorOverlay cursorOverlay;
     bool softwareCursorEnabled = false;

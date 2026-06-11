@@ -35,9 +35,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout AcidBaddProcessor::createLay
         ParameterID { ids::tuning, 1 }, "Tuning",
         NormalisableRange<float> (-12.0f, 12.0f, 0.01f), 0.0f, "st"));
 
+    // Hardware range: the 303's CUT OFF FREQ pot sweeps roughly 250 Hz – 2.4 kHz.
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ids::cutoff, 1 }, "Cutoff",
-        NormalisableRange<float> (30.0f, 6000.0f, 0.1f, 0.3f), 500.0f, "Hz"));
+        NormalisableRange<float> (250.0f, 2400.0f, 0.1f, 0.5f), 750.0f, "Hz"));
 
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ids::reso, 1 }, "Resonance",
@@ -47,9 +48,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout AcidBaddProcessor::createLay
         ParameterID { ids::envmod, 1 }, "Env Mod",
         NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.55f));
 
+    // Hardware range: the 303's DECAY pot spans 200 ms – 2 s.
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ids::decay, 1 }, "Decay",
-        NormalisableRange<float> (30.0f, 2000.0f, 1.0f, 0.4f), 350.0f, "ms"));
+        NormalisableRange<float> (200.0f, 2000.0f, 1.0f, 0.5f), 400.0f, "ms"));
 
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ids::accent, 1 }, "Accent",
@@ -162,7 +164,7 @@ void AcidBaddProcessor::triggerStep (int index, double /*samplesPerStep*/)
 
     if (cur.gate)
     {
-        const float vel = cur.accent ? 1.0f : 0.7f;   // velocity >= 0.62 => accent
+        const float vel = cur.accent ? 1.0f : 0.5f;   // velocity >= 0.62 => accent
 
         if (prev.slide && seqCurNote >= 0)
         {
