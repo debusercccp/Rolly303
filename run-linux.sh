@@ -16,8 +16,13 @@ APP="$HERE/build/AcidBadd_artefacts/Release/Standalone/AcidBadd 303"
 if [[ ! -x "$APP" ]]; then
     echo "Standalone not found at:"
     echo "  $APP"
-    echo "Build it first:  cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j"
-    exit 1
+    echo "Building it now..."
+    cmake -S "$HERE" -B "$HERE/build" -DCMAKE_BUILD_TYPE=Release
+    cmake --build "$HERE/build" -j
+    if [[ ! -x "$APP" ]]; then
+        echo "Build finished but the standalone is still missing — see output above."
+        exit 1
+    fi
 fi
 
 # 1) If we already have a working X display, just use it.

@@ -176,14 +176,18 @@ standalone directly.
 
 ## Running the standalone app
 
-Just launch the `AcidBadd 303` executable, or use the included launcher scripts
+Just launch the `AcidBadd 303` executable, or use the included scripts
 from the project root after building from source:
 
-- **Windows:** double‑click **`run-win.bat`** (or run it from a terminal). It finds
-  the built standalone under `build\` and starts it; if the build is missing it
-  prints the exact build commands instead.
-- **Linux:** run **`./run-linux.sh`** — same idea, plus it handles pure‑Wayland
-  desktops automatically (see below).
+- **Windows:** double‑click **`run-win.bat`** (or run it from a terminal). It is a
+  real installer: it builds the Release binaries first if they are missing, asks for
+  administrator rights, then installs the standalone app to
+  `C:\Program Files\AcidBadd 303`, the VST3 to `C:\Program Files\Common Files\VST3`,
+  creates Start Menu and Desktop shortcuts, and registers an uninstaller in
+  *Settings → Apps* ("Add or remove programs"). To remove everything, run
+  **`uninstall-win.bat`** or uninstall from *Settings → Apps*.
+- **Linux:** run **`./run-linux.sh`** — it launches the built standalone (building
+  it first if missing), and handles pure‑Wayland desktops automatically (see below).
 
 Once the app is open:
 
@@ -240,8 +244,9 @@ and you can run `AcidBadd 303` directly with no wrapper.
 acidBadd/
 ├── CMakeLists.txt          # Build script (fetches JUCE, defines the plugin)
 ├── README.md               # This file
-├── run-linux.sh            # Launches the built standalone on Linux (handles pure-Wayland)
-├── run-win.bat             # Launches the built standalone on Windows
+├── run-linux.sh            # Launches the built standalone on Linux (builds it if missing, handles pure-Wayland)
+├── run-win.bat             # Windows installer: builds if needed, installs app + VST3, shortcuts, uninstaller
+├── uninstall-win.bat       # Windows uninstaller (a copy is installed next to the app)
 └── source/
     ├── TB303Engine.h       # The DSP: oscillator, ladder filter, envelopes, voice
     ├── PluginProcessor.h
