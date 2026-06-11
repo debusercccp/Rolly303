@@ -3,8 +3,9 @@ rem
 rem AcidBadd 303 -- Windows installer.
 rem
 rem Double-click this file or run it from a terminal. It:
-rem   1. builds the Release binaries if they are missing (needs CMake and
-rem      Visual Studio's C++ tools on PATH),
+rem   1. builds the Release binaries if they are missing -- CMake and the
+rem      Microsoft C++ build tools are found automatically, and installed
+rem      with winget if absent (one-time),
 rem   2. asks for administrator rights,
 rem   3. installs the standalone app to   %ProgramFiles%\AcidBadd 303
 rem      and the VST3 plugin to           %CommonProgramFiles%\VST3,
@@ -25,17 +26,55 @@ set "VST3DIR=%CommonProgramFiles%\VST3"
 set "SHORTCUT=AcidBadd 303.lnk"
 set "STARTMENU=%ProgramData%\Microsoft\Windows\Start Menu\Programs"
 set "REGKEY=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AcidBadd303"
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 
 rem ---- 1) Build first, as the normal user, if the artefacts are missing.
 if exist "%STANDALONE%" if exist "%VST3SRC%" goto have_build
+
 echo Build artefacts not found -- building Release first...
-cmake -S "%HERE%." -B "%HERE%build"
+
+rem -- 1a) Locate CMake (PATH, standalone install, or the copy that ships
+rem        with the C++ build tools). Install it with winget if missing.
+set "CMAKE="
+call :find_cmake
+if defined CMAKE goto have_cmake
+echo CMake not found -- installing it now (one-time)...
+winget install --id Kitware.CMake -e --silent --accept-package-agreements --accept-source-agreements
+call :find_cmake
+if defined CMAKE goto have_cmake
+echo Could not find or install CMake automatically.
+echo Install it manually from  https://cmake.org/download/  (during setup
+echo choose "Add CMake to the PATH"), then run this script again.
+pause
+exit /b 1
+:have_cmake
+echo Using CMake: %CMAKE%
+
+rem -- 1b) Make sure the Microsoft C++ build tools (compiler + Windows SDK)
+rem        are present; install them with winget if not. Command-line tools
+rem        only, no IDE -- but it is a one-time multi-GB download, so this
+rem        step can take a while on the first run.
+call :find_cxx
+if defined HAVE_CXX goto have_cxx
+echo C++ build tools not found -- installing them now (one-time, a few GB)...
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --silent --accept-package-agreements --accept-source-agreements --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+call :find_cxx
+if defined HAVE_CXX goto have_cxx
+echo Could not find or install the C++ build tools automatically.
+echo Install them manually from  https://aka.ms/vs/17/release/vs_BuildTools.exe
+echo (pick the "Desktop development with C++" workload), then run this
+echo script again.
+pause
+exit /b 1
+:have_cxx
+
+"%CMAKE%" -S "%HERE%." -B "%HERE%build"
 if errorlevel 1 (
     echo CMake configure failed.
     pause
     exit /b 1
 )
-cmake --build "%HERE%build" --config Release
+"%CMAKE%" --build "%HERE%build" --config Release
 if errorlevel 1 (
     echo Build failed.
     pause
@@ -110,3 +149,32 @@ echo.
 choice /c YN /m "Launch AcidBadd 303 now"
 if not errorlevel 2 start "" "%INSTDIR%\AcidBadd 303.exe"
 endlocal
+exit /b 0
+
+rem ---------------------------------------------------------------------
+rem Subroutines
+rem ---------------------------------------------------------------------
+
+:find_cmake
+rem Sets CMAKE to the cmake.exe to use, or leaves it empty if none found.
+where cmake >nul 2>&1
+if not errorlevel 1 (
+    set "CMAKE=cmake"
+    goto :eof
+)
+if exist "%ProgramFiles%\CMake\bin\cmake.exe" (
+    set "CMAKE=%ProgramFiles%\CMake\bin\cmake.exe"
+    goto :eof
+)
+if exist "%VSWHERE%" (
+    for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -find Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe`) do set "CMAKE=%%i"
+)
+goto :eof
+
+:find_cxx
+rem Sets HAVE_CXX if the Microsoft C++ compiler toolset is installed.
+set "HAVE_CXX="
+if exist "%VSWHERE%" (
+    for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "HAVE_CXX=%%i"
+)
+goto :eof

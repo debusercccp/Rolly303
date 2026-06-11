@@ -130,7 +130,9 @@ The project is self‑contained: CMake downloads the JUCE framework automaticall
 - A C++17 compiler
 
 **Windows**
-- Visual Studio 2022 (Desktop development with C++), or Build Tools for VS 2022.
+- Nothing to install by hand: `run-win.bat` finds CMake and the Microsoft C++
+  build tools automatically, and installs them with `winget` if they are missing
+  (one-time download on the first build).
 
 **Linux** (Debian/Ubuntu names shown — install the equivalents on other distros)
 ```bash
