@@ -122,15 +122,46 @@ AcidBaddEditor::AcidBaddEditor (AcidBaddProcessor& p)
     keyboard.setLowestVisibleKey (36);
     addAndMakeVisible (keyboard);
 
+    // Software cursor: draw our own pointer when the host X server has no
+    // visible hardware cursor. run-linux.sh sets this when it spins up a
+    // bare Xwayland; leave it unset in a DAW so the system cursor is used.
+    softwareCursorEnabled =
+        juce::SystemStats::getEnvironmentVariable ("ACIDBADD_SOFTWARE_CURSOR", "0") != "0";
+
+    if (softwareCursorEnabled)
+    {
+        addAndMakeVisible (cursorOverlay);
+        cursorOverlay.moveTo (getMouseXYRelative());
+        juce::Desktop::getInstance().addGlobalMouseListener (this);
+    }
+
     setSize (900, 600);
     startTimerHz (30);
 }
 
 AcidBaddEditor::~AcidBaddEditor()
 {
+    if (softwareCursorEnabled)
+        juce::Desktop::getInstance().removeGlobalMouseListener (this);
+
     stopTimer();
     setLookAndFeel (nullptr);
 }
+
+//==============================================================================
+void AcidBaddEditor::updateSoftwareCursor (const juce::MouseEvent& e)
+{
+    const auto local = cursorOverlay.getLocalPoint (nullptr, e.getScreenPosition());
+    if (cursorOverlay.getLocalBounds().contains (local))
+        cursorOverlay.moveTo (local);
+    else
+        cursorOverlay.hide();
+}
+
+void AcidBaddEditor::mouseMove  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
+void AcidBaddEditor::mouseDrag  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
+void AcidBaddEditor::mouseEnter (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
+void AcidBaddEditor::mouseExit  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
 
 //==============================================================================
 void AcidBaddEditor::timerCallback()
@@ -188,6 +219,12 @@ void AcidBaddEditor::paint (juce::Graphics& g)
 
 void AcidBaddEditor::resized()
 {
+    if (softwareCursorEnabled)
+    {
+        cursorOverlay.setBounds (getLocalBounds());
+        cursorOverlay.toFront (false);
+    }
+
     auto area = getLocalBounds();
     area.removeFromTop (54);
 

@@ -62,11 +62,13 @@ if ! DISPLAY=":$DPYNUM" xdpyinfo >/dev/null 2>&1; then
 fi
 
 # Rootful Xwayland runs with no window manager inside it, so the root window
-# starts with no cursor (None = invisible). Give it a visible arrow that child
-# windows inherit, otherwise the pointer disappears over the synth.
+# starts with no cursor (None = invisible). Setting the root cursor helps, but
+# child windows don't reliably inherit it — so we also tell the app to draw its
+# own software cursor (CursorOverlay in PluginEditor), which never depends on
+# the X server having a visible pointer.
 if command -v xsetroot >/dev/null 2>&1; then
     DISPLAY=":$DPYNUM" xsetroot -cursor_name left_ptr 2>/dev/null || true
 fi
 
 echo "Launching AcidBadd 303 — close its window to quit."
-DISPLAY=":$DPYNUM" "$APP" "$@"
+DISPLAY=":$DPYNUM" ACIDBADD_SOFTWARE_CURSOR=1 "$APP" "$@"

@@ -4,6 +4,74 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
+// Draws a software mouse pointer that follows the cursor. Needed on setups
+// where the X server provides no visible hardware cursor (e.g. a rootful
+// Xwayland with no window manager), but harmless anywhere. Transparent to
+// clicks so it never interferes with the controls underneath.
+class CursorOverlay : public juce::Component
+{
+public:
+    CursorOverlay()
+    {
+        setInterceptsMouseClicks (false, false);
+        setAlwaysOnTop (true);
+        setPaintingIsUnclipped (true);
+    }
+
+    void moveTo (juce::Point<int> p)
+    {
+        if (! visiblePos || *visiblePos != p)
+        {
+            const auto old = visiblePos;
+            visiblePos = p;
+            if (old) repaint (cursorBounds (*old));
+            repaint (cursorBounds (p));
+        }
+    }
+
+    void hide()
+    {
+        if (visiblePos)
+        {
+            const auto old = *visiblePos;
+            visiblePos.reset();
+            repaint (cursorBounds (old));
+        }
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        if (! visiblePos) return;
+
+        const float x = (float) visiblePos->x;
+        const float y = (float) visiblePos->y;
+
+        juce::Path arrow;        // classic left-tip pointer, hot-spot at (x, y)
+        arrow.startNewSubPath (x,         y);
+        arrow.lineTo          (x,         y + 16.0f);
+        arrow.lineTo          (x + 4.2f,  y + 12.3f);
+        arrow.lineTo          (x + 7.0f,  y + 17.6f);
+        arrow.lineTo          (x + 9.6f,  y + 16.5f);
+        arrow.lineTo          (x + 6.8f,  y + 11.2f);
+        arrow.lineTo          (x + 11.6f, y + 11.2f);
+        arrow.closeSubPath();
+
+        g.setColour (juce::Colours::white);
+        g.fillPath (arrow);
+        g.setColour (juce::Colours::black);
+        g.strokePath (arrow, juce::PathStrokeType (1.0f));
+    }
+
+private:
+    static juce::Rectangle<int> cursorBounds (juce::Point<int> p)
+    {
+        return { p.x - 1, p.y - 1, 16, 20 };   // arrow extent plus 1px stroke
+    }
+
+    std::optional<juce::Point<int>> visiblePos;
+};
+
+//==============================================================================
 class AcidBaddEditor : public juce::AudioProcessorEditor,
                        private juce::Timer
 {
@@ -16,6 +84,13 @@ public:
 
 private:
     void timerCallback() override;
+
+    // software-cursor tracking (global mouse listener)
+    void mouseMove  (const juce::MouseEvent&) override;
+    void mouseDrag  (const juce::MouseEvent&) override;
+    void mouseEnter (const juce::MouseEvent&) override;
+    void mouseExit  (const juce::MouseEvent&) override;
+    void updateSoftwareCursor (const juce::MouseEvent&);
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
@@ -63,6 +138,9 @@ private:
 
     juce::MidiKeyboardComponent keyboard;
     juce::LookAndFeel_V4 lnf;
+
+    CursorOverlay cursorOverlay;
+    bool softwareCursorEnabled = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AcidBaddEditor)
 };

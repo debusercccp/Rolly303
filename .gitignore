@@ -1,0 +1,17 @@
+# Build output (CMake + JUCE artefacts)
+/build/
+build/
+cmake-build-*/
+
+# IDE / editor
+.vscode/
+.idea/
+*.user
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Local runtime logs
+/tmp/acidbadd-xwayland.log
+*.log
