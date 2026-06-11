@@ -74,26 +74,44 @@ and dial in **Cutoff / Resonance / Env Mod / Decay** to taste.
 
 ---
 
-## Installation — Pre‑built binaries
+## Installation
 
-If you were given a release archive, copy the files to the right place:
+There are **no pre‑built binaries** — the plugin and the standalone app must be
+**compiled from source first** (see [Building from source](#building-from-source) below;
+on Windows, `run-win.bat` builds *and* installs everything for you automatically).
+
+After a successful build, the files to install are found under
+`build/AcidBadd_artefacts/Release/`:
+
+```
+build/AcidBadd_artefacts/Release/
+├── Standalone/
+│   └── AcidBadd 303        (or "AcidBadd 303.exe" on Windows)
+└── VST3/
+    └── AcidBadd 303.vst3   ← this is what goes in your VST3 folder
+```
 
 ### Windows — step by step
 
 You have two ways to use AcidBadd 303 on Windows: as a **standalone app** (no DAW needed)
 or as a **VST3 plugin** inside a DAW.
 
-**A) Standalone app (easiest)**
-1. Unzip the release archive (right‑click → *Extract All…*).
-2. Find **`AcidBadd 303.exe`**.
+> **Easiest:** just double‑click **`run-win.bat`** — it compiles the project if needed
+> and installs both the standalone app and the VST3 (including shortcuts and an
+> uninstaller). The manual steps below are only needed if you prefer to do it yourself.
+
+**A) Standalone app**
+1. Build the project (see [Building from source](#building-from-source)).
+2. Find **`AcidBadd 303.exe`** in `build\AcidBadd_artefacts\Release\Standalone\`.
 3. Double‑click it to run. *(If Windows SmartScreen shows a blue "Windows protected your
    PC" box because the app is unsigned, click **More info → Run anyway**.)*
 4. Click the **Options/⚙ (audio settings)** button and choose your sound output device,
    then play the on‑screen keyboard or a connected MIDI keyboard.
 
 **B) VST3 plugin (use it in a DAW)**
-1. Unzip the release archive.
-2. Copy the **`AcidBadd 303.vst3`** item into the standard Windows VST3 folder:
+1. Build the project (see [Building from source](#building-from-source)).
+2. Copy **`AcidBadd 303.vst3`** from `build\AcidBadd_artefacts\Release\VST3\`
+   into the standard Windows VST3 folder:
    ```
    C:\Program Files\Common Files\VST3\
    ```
@@ -111,9 +129,18 @@ or as a **VST3 plugin** inside a DAW.
 > it is a single `.exe`. To uninstall, just delete the files you copied.
 
 ### Linux
-- **VST3**: copy the `AcidBadd 303.vst3` folder to
-  `~/.vst3/`   (create the folder if it does not exist)
-- **Standalone**: copy the `AcidBadd 303` executable anywhere and run it.
+
+First build the project (see [Building from source](#building-from-source)), then:
+
+- **VST3**: copy the `AcidBadd 303.vst3` folder from
+  `build/AcidBadd_artefacts/Release/VST3/` to
+  `~/.vst3/`   (create the folder if it does not exist):
+  ```bash
+  mkdir -p ~/.vst3
+  cp -r "build/AcidBadd_artefacts/Release/VST3/AcidBadd 303.vst3" ~/.vst3/
+  ```
+- **Standalone**: run `build/AcidBadd_artefacts/Release/Standalone/AcidBadd 303`
+  directly, or copy it anywhere you like (or just use `./run-linux.sh`).
 
 Then rescan plugins in your DAW (Ableton, Bitwig, Reaper, FL Studio, Ardour, etc.).
 
