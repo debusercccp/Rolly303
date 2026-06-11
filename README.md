@@ -176,7 +176,16 @@ standalone directly.
 
 ## Running the standalone app
 
-Just launch the `AcidBadd 303` executable.
+Just launch the `AcidBadd 303` executable, or use the included launcher scripts
+from the project root after building from source:
+
+- **Windows:** double‑click **`run-win.bat`** (or run it from a terminal). It finds
+  the built standalone under `build\` and starts it; if the build is missing it
+  prints the exact build commands instead.
+- **Linux:** run **`./run-linux.sh`** — same idea, plus it handles pure‑Wayland
+  desktops automatically (see below).
+
+Once the app is open:
 
 - The first time, open the app's **audio settings** (gear / "Options" button) to pick
   your output device and, on Linux, your ALSA or JACK device.
@@ -231,6 +240,8 @@ and you can run `AcidBadd 303` directly with no wrapper.
 acidBadd/
 ├── CMakeLists.txt          # Build script (fetches JUCE, defines the plugin)
 ├── README.md               # This file
+├── run-linux.sh            # Launches the built standalone on Linux (handles pure-Wayland)
+├── run-win.bat             # Launches the built standalone on Windows
 └── source/
     ├── TB303Engine.h       # The DSP: oscillator, ladder filter, envelopes, voice
     ├── PluginProcessor.h
