@@ -196,7 +196,7 @@ void TB303LookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& 
 }
 
 //==============================================================================
-AcidBaddEditor::AcidBaddEditor (AcidBaddProcessor& p)
+Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     : AudioProcessorEditor (p),
       processor (p),
       keyboard (p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
@@ -287,7 +287,7 @@ AcidBaddEditor::AcidBaddEditor (AcidBaddProcessor& p)
     // visible hardware cursor. run-linux.sh sets this when it spins up a
     // bare Xwayland; leave it unset in a DAW so the system cursor is used.
     softwareCursorEnabled =
-        juce::SystemStats::getEnvironmentVariable ("ACIDBADD_SOFTWARE_CURSOR", "0") != "0";
+        juce::SystemStats::getEnvironmentVariable ("ROLLY303_SOFTWARE_CURSOR", "0") != "0";
 
     if (softwareCursorEnabled)
     {
@@ -300,7 +300,7 @@ AcidBaddEditor::AcidBaddEditor (AcidBaddProcessor& p)
     startTimerHz (30);
 }
 
-AcidBaddEditor::~AcidBaddEditor()
+Rolly303Editor::~Rolly303Editor()
 {
     if (softwareCursorEnabled)
         juce::Desktop::getInstance().removeGlobalMouseListener (this);
@@ -310,7 +310,7 @@ AcidBaddEditor::~AcidBaddEditor()
 }
 
 //==============================================================================
-void AcidBaddEditor::updateSoftwareCursor (const juce::MouseEvent& e)
+void Rolly303Editor::updateSoftwareCursor (const juce::MouseEvent& e)
 {
     const auto local = cursorOverlay.getLocalPoint (nullptr, e.getScreenPosition());
     if (cursorOverlay.getLocalBounds().contains (local))
@@ -319,13 +319,13 @@ void AcidBaddEditor::updateSoftwareCursor (const juce::MouseEvent& e)
         cursorOverlay.hide();
 }
 
-void AcidBaddEditor::mouseMove  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
-void AcidBaddEditor::mouseDrag  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
-void AcidBaddEditor::mouseEnter (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
-void AcidBaddEditor::mouseExit  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
+void Rolly303Editor::mouseMove  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
+void Rolly303Editor::mouseDrag  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
+void Rolly303Editor::mouseEnter (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
+void Rolly303Editor::mouseExit  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
 
 //==============================================================================
-void AcidBaddEditor::timerCallback()
+void Rolly303Editor::timerCallback()
 {
     const int s = processor.playingStep.load();
     if (s != highlightStep)
@@ -336,7 +336,7 @@ void AcidBaddEditor::timerCallback()
 }
 
 //==============================================================================
-void AcidBaddEditor::addKnob (Knob& k, const juce::String& paramID, const juce::String& name)
+void Rolly303Editor::addKnob (Knob& k, const juce::String& paramID, const juce::String& name)
 {
     k.slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     k.slider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -352,7 +352,7 @@ void AcidBaddEditor::addKnob (Knob& k, const juce::String& paramID, const juce::
 }
 
 //==============================================================================
-void AcidBaddEditor::paint (juce::Graphics& g)
+void Rolly303Editor::paint (juce::Graphics& g)
 {
     g.fillAll (kCase);
 
@@ -368,7 +368,7 @@ void AcidBaddEditor::paint (juce::Graphics& g)
     auto title = face.reduced (18.0f, 8.0f).removeFromTop (46.0f);
     g.setColour (kInk);
     g.setFont (juce::Font (30.0f, juce::Font::bold));
-    g.drawText ("AcidBadd 303", title, juce::Justification::topLeft);
+    g.drawText ("Rolly303", title, juce::Justification::topLeft);
     g.setColour (kRed);
     g.setFont (juce::Font (15.0f, juce::Font::bold | juce::Font::italic));
     g.drawText ("Bass Line", title.translated (4.0f, 28.0f), juce::Justification::topLeft);
@@ -409,7 +409,7 @@ void AcidBaddEditor::paint (juce::Graphics& g)
     }
 }
 
-void AcidBaddEditor::resized()
+void Rolly303Editor::resized()
 {
     if (softwareCursorEnabled)
     {

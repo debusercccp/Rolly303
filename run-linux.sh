@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Launch the AcidBadd 303 standalone on Linux.
+# Launch the Rolly303 standalone on Linux.
 #
 # JUCE apps are X11-only. On a normal X11 desktop this just runs the app.
 # On a pure-Wayland compositor that has no X server running (e.g. niri, river,
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP="$HERE/build/AcidBadd_artefacts/Release/Standalone/AcidBadd 303"
+APP="$HERE/build/Rolly303_artefacts/Release/Standalone/Rolly303"
 
 if [[ ! -x "$APP" ]]; then
     echo "Standalone not found at:"
@@ -51,7 +51,7 @@ while [[ -e "/tmp/.X11-unix/X$DPYNUM" ]]; do DPYNUM=$((DPYNUM + 1)); done
 
 echo "No X server detected — starting a temporary Xwayland on :$DPYNUM (Wayland=$WL)..."
 WAYLAND_DISPLAY="$WL" XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
-    Xwayland ":$DPYNUM" -ac -decorate -geometry 960x660 >/tmp/acidbadd-xwayland.log 2>&1 &
+    Xwayland ":$DPYNUM" -ac -decorate -geometry 960x660 >/tmp/rolly303-xwayland.log 2>&1 &
 XWL_PID=$!
 cleanup() { kill "$XWL_PID" 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
@@ -62,7 +62,7 @@ for _ in $(seq 1 40); do
     sleep 0.25
 done
 if ! DISPLAY=":$DPYNUM" xdpyinfo >/dev/null 2>&1; then
-    echo "Xwayland failed to start. Log:"; cat /tmp/acidbadd-xwayland.log
+    echo "Xwayland failed to start. Log:"; cat /tmp/rolly303-xwayland.log
     exit 1
 fi
 
@@ -75,5 +75,5 @@ if command -v xsetroot >/dev/null 2>&1; then
     DISPLAY=":$DPYNUM" xsetroot -cursor_name left_ptr 2>/dev/null || true
 fi
 
-echo "Launching AcidBadd 303 — close its window to quit."
-DISPLAY=":$DPYNUM" ACIDBADD_SOFTWARE_CURSOR=1 "$APP" "$@"
+echo "Launching Rolly303 — close its window to quit."
+DISPLAY=":$DPYNUM" ROLLY303_SOFTWARE_CURSOR=1 "$APP" "$@"

@@ -15,5 +15,5 @@ cmake-build-*/
 Thumbs.db
 
 # Local runtime logs
-/tmp/acidbadd-xwayland.log
+/tmp/rolly303-xwayland.log
 *.log

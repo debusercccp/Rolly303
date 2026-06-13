@@ -1,4 +1,4 @@
-# AcidBadd 303
+# Rolly303
 
 A standalone synthesizer and **VST3 plugin** that emulates the **Roland TB‑303 Bass Line** — the squelchy, resonant mono‑synth that defined acid house and techno. Builds from a single codebase to a **Standalone app** and a **VST3 plugin** on both **Windows** and **Linux**.
 
@@ -81,19 +81,19 @@ There are **no pre‑built binaries** — the plugin and the standalone app must
 on Windows, `run-win.bat` builds *and* installs everything for you automatically).
 
 After a successful build, the files to install are found under
-`build/AcidBadd_artefacts/Release/`:
+`build/Rolly303_artefacts/Release/`:
 
 ```
-build/AcidBadd_artefacts/Release/
+build/Rolly303_artefacts/Release/
 ├── Standalone/
-│   └── AcidBadd 303        (or "AcidBadd 303.exe" on Windows)
+│   └── Rolly303        (or "Rolly303.exe" on Windows)
 └── VST3/
-    └── AcidBadd 303.vst3   ← this is what goes in your VST3 folder
+    └── Rolly303.vst3   ← this is what goes in your VST3 folder
 ```
 
 ### Windows — step by step
 
-You have two ways to use AcidBadd 303 on Windows: as a **standalone app** (no DAW needed)
+You have two ways to use Rolly303 on Windows: as a **standalone app** (no DAW needed)
 or as a **VST3 plugin** inside a DAW.
 
 > **Easiest:** just double‑click **`run-win.bat`** — it compiles the project if needed
@@ -102,7 +102,7 @@ or as a **VST3 plugin** inside a DAW.
 
 **A) Standalone app**
 1. Build the project (see [Building from source](#building-from-source)).
-2. Find **`AcidBadd 303.exe`** in `build\AcidBadd_artefacts\Release\Standalone\`.
+2. Find **`Rolly303.exe`** in `build\Rolly303_artefacts\Release\Standalone\`.
 3. Double‑click it to run. *(If Windows SmartScreen shows a blue "Windows protected your
    PC" box because the app is unsigned, click **More info → Run anyway**.)*
 4. Click the **Options/⚙ (audio settings)** button and choose your sound output device,
@@ -110,7 +110,7 @@ or as a **VST3 plugin** inside a DAW.
 
 **B) VST3 plugin (use it in a DAW)**
 1. Build the project (see [Building from source](#building-from-source)).
-2. Copy **`AcidBadd 303.vst3`** from `build\AcidBadd_artefacts\Release\VST3\`
+2. Copy **`Rolly303.vst3`** from `build\Rolly303_artefacts\Release\VST3\`
    into the standard Windows VST3 folder:
    ```
    C:\Program Files\Common Files\VST3\
@@ -123,7 +123,7 @@ or as a **VST3 plugin** inside a DAW.
    - *FL Studio:* Options → Manage plugins → **Find plugins**.
    - *Ableton Live:* Preferences → Plug‑Ins → turn on **Use VST3 System Folders**, then **Rescan**.
    - *Reaper:* Preferences → Plug‑ins → VST → **Re‑scan**.
-4. Add **AcidBadd 303** to a MIDI/instrument track and play it.
+4. Add **Rolly303** to a MIDI/instrument track and play it.
 
 > **Requirements:** 64‑bit Windows 10 or 11. The standalone app needs no installer —
 > it is a single `.exe`. To uninstall, just delete the files you copied.
@@ -132,14 +132,14 @@ or as a **VST3 plugin** inside a DAW.
 
 First build the project (see [Building from source](#building-from-source)), then:
 
-- **VST3**: copy the `AcidBadd 303.vst3` folder from
-  `build/AcidBadd_artefacts/Release/VST3/` to
+- **VST3**: copy the `Rolly303.vst3` folder from
+  `build/Rolly303_artefacts/Release/VST3/` to
   `~/.vst3/`   (create the folder if it does not exist):
   ```bash
   mkdir -p ~/.vst3
-  cp -r "build/AcidBadd_artefacts/Release/VST3/AcidBadd 303.vst3" ~/.vst3/
+  cp -r "build/Rolly303_artefacts/Release/VST3/Rolly303.vst3" ~/.vst3/
   ```
-- **Standalone**: run `build/AcidBadd_artefacts/Release/Standalone/AcidBadd 303`
+- **Standalone**: run `build/Rolly303_artefacts/Release/Standalone/Rolly303`
   directly, or copy it anywhere you like (or just use `./run-linux.sh`).
 
 Then rescan plugins in your DAW (Ableton, Bitwig, Reaper, FL Studio, Ardour, etc.).
@@ -188,14 +188,14 @@ The first configure step clones JUCE and may take a few minutes. Subsequent buil
 
 ### 3. Where the built files land
 
-After a successful build, look under `build/AcidBadd_artefacts/Release/`:
+After a successful build, look under `build/Rolly303_artefacts/Release/`:
 
 ```
-build/AcidBadd_artefacts/Release/
+build/Rolly303_artefacts/Release/
 ├── Standalone/
-│   └── AcidBadd 303        (or "AcidBadd 303.exe" on Windows)
+│   └── Rolly303        (or "Rolly303.exe" on Windows)
 └── VST3/
-    └── AcidBadd 303.vst3
+    └── Rolly303.vst3
 ```
 
 Copy the VST3 to the plugin folders listed in **Installation** above, or run the
@@ -205,13 +205,13 @@ standalone directly.
 
 ## Running the standalone app
 
-Just launch the `AcidBadd 303` executable, or use the included scripts
+Just launch the `Rolly303` executable, or use the included scripts
 from the project root after building from source:
 
 - **Windows:** double‑click **`run-win.bat`** (or run it from a terminal). It is a
   real installer: it builds the Release binaries first if they are missing, asks for
   administrator rights, then installs the standalone app to
-  `C:\Program Files\AcidBadd 303`, the VST3 to `C:\Program Files\Common Files\VST3`,
+  `C:\Program Files\Rolly303`, the VST3 to `C:\Program Files\Common Files\VST3`,
   creates Start Menu and Desktop shortcuts, and registers an uninstaller in
   *Settings → Apps* ("Add or remove programs"). To remove everything, run
   **`uninstall-win.bat`** or uninstall from *Settings → Apps*.
@@ -248,7 +248,7 @@ window that hosts the synth) and cleans it up on exit:
 
 ```bash
 WAYLAND_DISPLAY=wayland-1 Xwayland :12 -ac -decorate -geometry 960x660 &
-DISPLAY=:12 "./build/AcidBadd_artefacts/Release/Standalone/AcidBadd 303"
+DISPLAY=:12 "./build/Rolly303_artefacts/Release/Standalone/Rolly303"
 ```
 
 > Needs the `xwayland` package: `sudo apt install xwayland`.
@@ -263,14 +263,14 @@ export DISPLAY=:0                        # export this in your shell profile
 ```
 
 After that, every X11 app (this synth, and X11 plugin GUIs inside Linux DAWs) just works,
-and you can run `AcidBadd 303` directly with no wrapper.
+and you can run `Rolly303` directly with no wrapper.
 
 ---
 
 ## Project layout
 
 ```
-acidBadd/
+rolly303/
 ├── CMakeLists.txt          # Build script (fetches JUCE, defines the plugin)
 ├── README.md               # This file
 ├── run-linux.sh            # Launches the built standalone on Linux (builds it if missing, handles pure-Wayland)

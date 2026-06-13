@@ -93,12 +93,12 @@ public:
 };
 
 //==============================================================================
-class AcidBaddEditor : public juce::AudioProcessorEditor,
+class Rolly303Editor : public juce::AudioProcessorEditor,
                        private juce::Timer
 {
 public:
-    explicit AcidBaddEditor (AcidBaddProcessor&);
-    ~AcidBaddEditor() override;
+    explicit Rolly303Editor (Rolly303Processor&);
+    ~Rolly303Editor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -134,7 +134,7 @@ private:
 
     void addKnob (Knob& k, const juce::String& paramID, const juce::String& name);
 
-    AcidBaddProcessor& processor;
+    Rolly303Processor& processor;
 
     // synth controls (panel order of the original: tempo, waveform,
     // tuning, cut off freq, resonance, env mod, decay, accent, volume)
@@ -153,7 +153,7 @@ private:
     std::unique_ptr<ComboAttachment>  rootAtt;
 
     // sequencer grid
-    std::array<StepUI, AcidBaddProcessor::kNumSteps> steps;
+    std::array<StepUI, Rolly303Processor::kNumSteps> steps;
     juce::Label rowLabelPitch, rowLabelGate, rowLabelAccent, rowLabelSlide;
     juce::Rectangle<int> gridArea;     // for drawing the play-head LEDs
     juce::Rectangle<int> panelArea;    // silver face (drawn in paint)
@@ -166,5 +166,5 @@ private:
     CursorOverlay cursorOverlay;
     bool softwareCursorEnabled = false;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AcidBaddEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Rolly303Editor)
 };

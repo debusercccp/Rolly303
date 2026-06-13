@@ -4,11 +4,11 @@
 #include "TB303Engine.h"
 
 //==============================================================================
-class AcidBaddProcessor : public juce::AudioProcessor
+class Rolly303Processor : public juce::AudioProcessor
 {
 public:
-    AcidBaddProcessor();
-    ~AcidBaddProcessor() override = default;
+    Rolly303Processor();
+    ~Rolly303Processor() override = default;
 
     //==========================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -20,9 +20,9 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "AcidBadd 303"; }
+    const juce::String getName() const override { return "Rolly303"; }
     bool acceptsMidi() const override  { return true; }
-    bool producesMidi() const override { return false; }
+    bool producesMidi() const override { return true; }
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 1.0; }
 
@@ -49,11 +49,13 @@ public:
 private:
     void updateEngineParams();
 
-    // --- internal step sequencer ---------------------------------------------
+    // --- step sequencer (emits MIDI; synced to the host tempo/transport) ------
     struct StepData { int pitch; bool gate, accent, slide; };
     StepData readStep (int index);
-    void     renderSequencer (float* out, int numSamples);
-    void     triggerStep (int index, double samplesPerStep);
+    void     renderSequencerMidi (juce::MidiBuffer& seq, int numSamples);
+    void     triggerStepMidi (juce::MidiBuffer& seq, int index, int sampleOffset);
+    void     renderVoice (juce::AudioBuffer<float>& buffer,
+                          const juce::MidiBuffer& midi, int numSamples);
 
     acid::TB303Engine engine;
 
@@ -64,5 +66,5 @@ private:
     double    seqGateOffPos = 1.0e18;  // step position at which to release the note
     bool      wasPlaying    = false;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AcidBaddProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Rolly303Processor)
 };

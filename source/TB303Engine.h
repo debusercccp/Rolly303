@@ -5,7 +5,7 @@
 #include <algorithm>
 
 //==============================================================================
-//  AcidBadd 303 — a faithful emulation of the Roland TB-303 mono voice.
+//  Rolly303 — a faithful emulation of the Roland TB-303 mono voice.
 //
 //  Signal path (matching the original circuit topology):
 //

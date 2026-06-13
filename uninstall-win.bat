@@ -1,19 +1,19 @@
 @echo off
 rem
-rem AcidBadd 303 -- uninstaller.
+rem Rolly303 -- uninstaller.
 rem
 rem Removes everything run-win.bat installed: the standalone app, the VST3
 rem plugin, the shortcuts and the "Add or remove programs" entry. A copy of
-rem this file is installed as  %ProgramFiles%\AcidBadd 303\uninstall.bat,
+rem this file is installed as  %ProgramFiles%\Rolly303\uninstall.bat,
 rem so it works both from the project folder and from Settings -> Apps.
 rem
 setlocal
 
-set "INSTDIR=%ProgramFiles%\AcidBadd 303"
-set "VST3=%CommonProgramFiles%\VST3\AcidBadd 303.vst3"
-set "SHORTCUT=AcidBadd 303.lnk"
+set "INSTDIR=%ProgramFiles%\Rolly303"
+set "VST3=%CommonProgramFiles%\VST3\Rolly303.vst3"
+set "SHORTCUT=Rolly303.lnk"
 set "STARTMENU=%ProgramData%\Microsoft\Windows\Start Menu\Programs"
-set "REGKEY=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AcidBadd303"
+set "REGKEY=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Rolly303303"
 
 net session >nul 2>&1
 if errorlevel 1 (
@@ -22,7 +22,7 @@ if errorlevel 1 (
     exit /b
 )
 
-choice /c YN /m "Remove AcidBadd 303 from this computer"
+choice /c YN /m "Remove Rolly303 from this computer"
 if errorlevel 2 exit /b 0
 
 echo Removing VST3 plugin...
@@ -36,7 +36,7 @@ echo Removing "Add or remove programs" entry...
 reg delete "%REGKEY%" /f >nul 2>&1
 
 echo Removing "%INSTDIR%"...
-echo Done -- AcidBadd 303 has been uninstalled.
+echo Done -- Rolly303 has been uninstalled.
 timeout /t 4 >nul
 
 rem The last line removes the folder that may contain this very script. The
