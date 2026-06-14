@@ -93,8 +93,45 @@ public:
 };
 
 //==============================================================================
-class Rolly303Editor : public juce::AudioProcessorEditor,
-                       private juce::Timer
+// 303-style pattern editor: a piano-roll grid. Each of the 16 steps gets one
+// note, picked on the vertical keyboard at the left (click a cell to set the
+// note; click the lit cell again to make the step a rest). Two rows under the
+// grid toggle ACCENT and SLIDE per step — exactly the data the hardware lets
+// you enter. It reads and writes the p*/g*/a*/s* parameters directly.
+class StepPianoRoll : public juce::Component,
+                      private juce::Timer
+{
+public:
+    explicit StepPianoRoll (Rolly303Processor&);
+    ~StepPianoRoll() override;
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+
+private:
+    void timerCallback() override;
+    void editAt (juce::Point<int> pos, bool isDrag);
+
+    int  pitchOf (int step) const;
+    bool flagOf  (const juce::String& prefix, int step) const;
+    void setNorm (const juce::String& id, float value01);
+    void setPitch (int step, int pitch);
+
+    static constexpr int kPitches = 25;   // pitch parameter range is 0..24
+
+    Rolly303Processor& proc;
+
+    juce::Rectangle<int> keyCol, header, noteGrid, accentRow, slideRow;
+    int          lastPlayHead = -2;
+    juce::int64  lastSnapshot = -1;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StepPianoRoll)
+};
+
+//==============================================================================
+class Rolly303Editor : public juce::AudioProcessorEditor
 {
 public:
     explicit Rolly303Editor (Rolly303Processor&);
@@ -104,8 +141,6 @@ public:
     void resized() override;
 
 private:
-    void timerCallback() override;
-
     // software-cursor tracking (global mouse listener)
     void mouseMove  (const juce::MouseEvent&) override;
     void mouseDrag  (const juce::MouseEvent&) override;
@@ -122,14 +157,6 @@ private:
         juce::Slider slider;
         juce::Label  label;
         std::unique_ptr<SliderAttachment> attach;
-    };
-
-    struct StepUI
-    {
-        juce::Slider       pitch;
-        juce::ToggleButton gate, accent, slide;
-        std::unique_ptr<SliderAttachment> pitchAtt;
-        std::unique_ptr<ButtonAttachment> gateAtt, accentAtt, slideAtt;
     };
 
     void addKnob (Knob& k, const juce::String& paramID, const juce::String& name);
@@ -152,13 +179,11 @@ private:
     std::unique_ptr<SliderAttachment> octaveAtt;
     std::unique_ptr<ComboAttachment>  rootAtt;
 
-    // sequencer grid
-    std::array<StepUI, Rolly303Processor::kNumSteps> steps;
-    juce::Label rowLabelPitch, rowLabelGate, rowLabelAccent, rowLabelSlide;
-    juce::Rectangle<int> gridArea;     // for drawing the play-head LEDs
+    // sequencer pattern editor (piano roll)
+    StepPianoRoll pianoRoll;
+    juce::Rectangle<int> gridArea;     // bounds of the piano roll (for the well)
     juce::Rectangle<int> panelArea;    // silver face (drawn in paint)
-    juce::Rectangle<int> seqArea;      // black sequencer section
-    int highlightStep = -1;
+    juce::Rectangle<int> seqArea;      // sequencer deck (drawn in paint)
 
     juce::MidiKeyboardComponent keyboard;
     TB303LookAndFeel lnf;

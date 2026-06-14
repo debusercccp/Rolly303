@@ -14,7 +14,7 @@ A standalone synthesizer and **VST3 plugin** that emulates the **Roland TB‑303
 - **No‑sustain VCA envelope** — fixed ~3 ms attack and a slow ~3.5 s decay that keeps falling while a key is held, just like the original.
 - **Accent** — high‑velocity notes force a fast fixed envelope decay (~200 ms), add punch to the VCA, and drive the filter through the accent **sweep capacitor**: its charging runs through the resonance pot, so at high resonance repeated accents build up the famous "wow‑wow" sweep.
 - **Slide** — overlapping (legato) notes glide in pitch over the 303's fixed ~60 ms, with the envelope *not* retriggering, just like the original.
-- **Built‑in 16‑step sequencer** with **per‑step pitch, gate, accent and slide** — the other half of what makes a 303 a 303.
+- **Built‑in 16‑step sequencer** with a **piano‑roll pattern editor** — set each step's note on the keyboard grid, with **per‑step accent, slide and rest** — the other half of what makes a 303 a 303.
 - **Tuning** (±12 semitones), **Cutoff**, **Resonance**, **Env Mod**, **Decay**, **Accent**, **Volume**.
 - **On‑screen keyboard** in the standalone app, plus full MIDI input in any DAW.
 - Cross‑platform: **Windows** and **Linux**, **Standalone + VST3**.
@@ -54,23 +54,28 @@ itself, so it works in the **standalone app and in any DAW**.
 | **ROOT**   | The root note the pattern is built from (C…B). |
 | **OCTAVE** | Shift the whole pattern up/down by octaves. |
 
-### Per‑step controls (the grid)
+### The piano‑roll pattern editor (the grid)
 
-Each of the 16 columns is one 16th‑note step with four controls stacked top to bottom:
+Notes are entered the way the hardware does it — you pick a note for each step on
+a keyboard, not with faders. The grid has a vertical keyboard down the left side,
+16 step columns across, and two rows underneath for accent and slide:
 
-- **PITCH** (vertical slider) — semitone offset for that step, `0…24` (two octaves) above Root.
-- **GATE** — note on/off. Turn it off to make a rest.
-- **ACCENT** — gives that step extra volume, brightness and bite (the accent bus).
-- **SLIDE** — glides *from this step into the next one* without re‑plucking the
-  envelope, producing the signature 303 portamento.
+- **Click a cell** to set that step's note (`0…24`, two octaves, above Root).
+- **Click the lit note again** to turn the step into a **rest**; the rest still
+  remembers its note as a faint ghost outline so you can bring it back.
+- **Drag** across columns to paint notes quickly.
+- **ACCENT** row — gives that step extra volume, brightness and bite (the accent
+  bus); accented notes also turn orange in the grid.
+- **SLIDE** row — glides *from this step into the next one* without re‑plucking the
+  envelope, producing the signature 303 portamento (drawn as a tie‑bar).
 
-The currently playing step is highlighted in orange while the sequencer runs.
+The currently playing step's column is highlighted while the sequencer runs.
 The whole pattern (and every knob) is saved with your DAW project and restored on reload.
 
 ### Quick start
 Press **RUN**. The synth ships with a default acid riff so you'll hear sound
-immediately — then drag the PITCH sliders, toggle some ACCENT/SLIDE buttons,
-and dial in **Cutoff / Resonance / Env Mod / Decay** to taste.
+immediately — then click notes into the piano roll, toggle some ACCENT/SLIDE
+cells, and dial in **Cutoff / Resonance / Env Mod / Decay** to taste.
 
 ---
 

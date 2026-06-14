@@ -2,23 +2,19 @@
 
 namespace
 {
-    // 303 panel palette
-    const juce::Colour kCase      { 0xff141416 };   // dark case around the face
-    const juce::Colour kFaceHi    { 0xffe2e2de };   // brushed-silver face
-    const juce::Colour kFaceLo    { 0xffbcbcba };
-    const juce::Colour kInk       { 0xff1c1c1c };   // panel print
-    const juce::Colour kRed       { 0xffd02a20 };   // 303 red (LEDs / lettering)
-    const juce::Colour kSeqPanel  { 0xff1d1d22 };   // black sequencer section
-    const juce::Colour kSeqText   { 0xffd8d4cc };
-    const juce::Colour kBtnBody   { 0xff34343c };
-
-    void styleRowLabel (juce::Label& l, const juce::String& t)
-    {
-        l.setText (t, juce::dontSendNotification);
-        l.setJustificationType (juce::Justification::centredRight);
-        l.setFont (juce::Font (11.0f, juce::Font::bold));
-        l.setColour (juce::Label::textColourId, kSeqText);
-    }
+    // 303 panel palette — matched to the original hardware front-panel photo:
+    // a light brushed-silver upper face over a darker brushed-grey lower deck.
+    const juce::Colour kCase      { 0xff0e0e10 };   // near-black case rim
+    const juce::Colour kFaceHi    { 0xffececeb };   // brushed-silver face (top)
+    const juce::Colour kFaceLo    { 0xffc2c2c0 };   //                     (bottom)
+    const juce::Colour kInk       { 0xff242424 };   // dark panel print
+    const juce::Colour kRed       { 0xffc62a1f };   // 303 red (LEDs / lettering)
+    const juce::Colour kSeqHi     { 0xff6f6f72 };   // brushed-grey lower deck (top)
+    const juce::Colour kSeqLo     { 0xff48484b };   //                        (bottom)
+    const juce::Colour kSeqPanel  { 0xff56565a };   // lower-deck mid tone
+    const juce::Colour kSeqText   { 0xffeceae4 };   // light print on the lower deck
+    const juce::Colour kBtnBody   { 0xff26262a };   // dark keys / step buttons
+    const juce::Colour kInset     { 0xff1b1b1e };   // recessed display wells
 
     void drawWaveGlyph (juce::Graphics& g, juce::Rectangle<float> r, bool square)
     {
@@ -199,6 +195,7 @@ void TB303LookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& 
 Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     : AudioProcessorEditor (p),
       processor (p),
+      pianoRoll (p),
       keyboard (p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
     setLookAndFeel (&lnf);
@@ -249,36 +246,8 @@ Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     octaveLabel.setColour (juce::Label::textColourId, kSeqText);
     addAndMakeVisible (octaveLabel);
 
-    // --- step grid -----------------------------------------------------------
-    styleRowLabel (rowLabelPitch,  "PITCH");
-    styleRowLabel (rowLabelGate,   "GATE");
-    styleRowLabel (rowLabelAccent, "ACCENT");
-    styleRowLabel (rowLabelSlide,  "SLIDE");
-    addAndMakeVisible (rowLabelPitch);
-    addAndMakeVisible (rowLabelGate);
-    addAndMakeVisible (rowLabelAccent);
-    addAndMakeVisible (rowLabelSlide);
-
-    for (int i = 0; i < (int) steps.size(); ++i)
-    {
-        auto& st = steps[(size_t) i];
-        const auto s = juce::String (i);
-
-        st.pitch.setSliderStyle (juce::Slider::LinearVertical);
-        st.pitch.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 30, 14);
-        st.pitch.setColour (juce::Slider::textBoxTextColourId, kSeqText.withAlpha (0.7f));
-        addAndMakeVisible (st.pitch);
-        st.pitchAtt = std::make_unique<SliderAttachment> (processor.apvts, "p" + s, st.pitch);
-
-        for (auto* b : { &st.gate, &st.accent, &st.slide })
-        {
-            b->setButtonText ({});
-            addAndMakeVisible (*b);
-        }
-        st.gateAtt   = std::make_unique<ButtonAttachment> (processor.apvts, "g" + s, st.gate);
-        st.accentAtt = std::make_unique<ButtonAttachment> (processor.apvts, "a" + s, st.accent);
-        st.slideAtt  = std::make_unique<ButtonAttachment> (processor.apvts, "s" + s, st.slide);
-    }
+    // --- pattern editor (piano roll) -----------------------------------------
+    addAndMakeVisible (pianoRoll);
 
     keyboard.setLowestVisibleKey (36);
     addAndMakeVisible (keyboard);
@@ -296,8 +265,7 @@ Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
         juce::Desktop::getInstance().addGlobalMouseListener (this);
     }
 
-    setSize (960, 640);
-    startTimerHz (30);
+    setSize (1000, 720);
 }
 
 Rolly303Editor::~Rolly303Editor()
@@ -305,7 +273,6 @@ Rolly303Editor::~Rolly303Editor()
     if (softwareCursorEnabled)
         juce::Desktop::getInstance().removeGlobalMouseListener (this);
 
-    stopTimer();
     setLookAndFeel (nullptr);
 }
 
@@ -323,17 +290,6 @@ void Rolly303Editor::mouseMove  (const juce::MouseEvent& e) { updateSoftwareCurs
 void Rolly303Editor::mouseDrag  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
 void Rolly303Editor::mouseEnter (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
 void Rolly303Editor::mouseExit  (const juce::MouseEvent& e) { updateSoftwareCursor (e); }
-
-//==============================================================================
-void Rolly303Editor::timerCallback()
-{
-    const int s = processor.playingStep.load();
-    if (s != highlightStep)
-    {
-        highlightStep = s;
-        repaint (gridArea.expanded (0, 14));
-    }
-}
 
 //==============================================================================
 void Rolly303Editor::addKnob (Knob& k, const juce::String& paramID, const juce::String& name)
@@ -356,57 +312,71 @@ void Rolly303Editor::paint (juce::Graphics& g)
 {
     g.fillAll (kCase);
 
-    // brushed-silver face
+    // --- brushed-silver upper face -------------------------------------------
     auto face = panelArea.toFloat();
     g.setGradientFill (juce::ColourGradient (kFaceHi, face.getTopLeft(),
                                              kFaceLo, face.getBottomLeft(), false));
     g.fillRoundedRectangle (face, 6.0f);
-    g.setColour (juce::Colours::black);
+    // faint horizontal brushing
+    g.setColour (juce::Colours::white.withAlpha (0.05f));
+    for (float yy = face.getY() + 2.0f; yy < face.getBottom(); yy += 3.0f)
+        g.drawHorizontalLine ((int) yy, face.getX() + 2.0f, face.getRight() - 2.0f);
+    g.setColour (kCase);
     g.drawRoundedRectangle (face, 6.0f, 1.5f);
 
-    // panel lettering
-    auto title = face.reduced (18.0f, 8.0f).removeFromTop (46.0f);
-    g.setColour (kInk);
-    g.setFont (juce::Font (30.0f, juce::Font::bold));
-    g.drawText ("Rolly303", title, juce::Justification::topLeft);
-    g.setColour (kRed);
-    g.setFont (juce::Font (15.0f, juce::Font::bold | juce::Font::italic));
-    g.drawText ("Bass Line", title.translated (4.0f, 28.0f), juce::Justification::topLeft);
-    g.setColour (kInk.withAlpha (0.75f));
-    g.setFont (juce::Font (11.0f));
-    g.drawText ("COMPUTER CONTROLLED", title, juce::Justification::topRight);
-
-    // thin print line separating the title from the knob row
-    g.setColour (kInk.withAlpha (0.5f));
-    g.fillRect (face.reduced (14.0f, 0.0f).removeFromTop (52.0f).removeFromBottom (1.0f));
-
-    // black sequencer section
-    auto seq = seqArea.toFloat();
-    g.setColour (kSeqPanel);
-    g.fillRoundedRectangle (seq, 6.0f);
+    // maker plate, top-left (homage to the hardware's silver name plate)
+    auto plate = juce::Rectangle<float> (face.getX() + 16.0f, face.getY() + 12.0f, 132.0f, 34.0f);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff2a2a2e), plate.getTopLeft(),
+                                             juce::Colour (0xff0c0c0e), plate.getBottomLeft(), false));
+    g.fillRoundedRectangle (plate, 5.0f);
     g.setColour (juce::Colours::black);
+    g.drawRoundedRectangle (plate, 5.0f, 1.0f);
+    g.setColour (juce::Colour (0xfff2f2f0));
+    g.setFont (juce::Font (21.0f, juce::Font::bold));
+    g.drawText ("Rolly", plate.reduced (10.0f, 0.0f), juce::Justification::centredLeft);
+    g.setColour (kRed);
+    g.setFont (juce::Font (21.0f, juce::Font::bold));
+    g.drawText ("303", plate.reduced (10.0f, 0.0f), juce::Justification::centredRight);
+
+    // "Bass Line" script + TB-303 line, top-right
+    auto brand = face.reduced (18.0f, 10.0f).removeFromRight (220.0f).removeFromTop (44.0f);
+    g.setColour (kInk);
+    g.setFont (juce::Font (32.0f, juce::Font::bold | juce::Font::italic));
+    g.drawText ("Bass Line", brand, juce::Justification::topRight);
+    g.setColour (kInk.withAlpha (0.85f));
+    g.setFont (juce::Font (12.0f, juce::Font::bold));
+    g.drawText ("TB-303   Computer Controlled",
+                brand.translated (0.0f, 30.0f), juce::Justification::topRight);
+
+    // thin print line under the title band
+    g.setColour (kInk.withAlpha (0.45f));
+    g.fillRect (face.reduced (14.0f, 0.0f).removeFromTop (56.0f).removeFromBottom (1.0f));
+
+    // --- brushed-grey lower deck ---------------------------------------------
+    auto seq = seqArea.toFloat();
+    g.setGradientFill (juce::ColourGradient (kSeqHi, seq.getTopLeft(),
+                                             kSeqLo, seq.getBottomLeft(), false));
+    g.fillRoundedRectangle (seq, 6.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.04f));
+    for (float yy = seq.getY() + 2.0f; yy < seq.getBottom(); yy += 3.0f)
+        g.drawHorizontalLine ((int) yy, seq.getX() + 2.0f, seq.getRight() - 2.0f);
+    g.setColour (kCase);
     g.drawRoundedRectangle (seq, 6.0f, 1.5f);
+
+    // recessed well behind the step grid
+    if (! gridArea.isEmpty())
+    {
+        auto well = gridArea.toFloat().expanded (8.0f, 18.0f);
+        g.setColour (kInset);
+        g.fillRoundedRectangle (well, 5.0f);
+        g.setColour (juce::Colours::black);
+        g.drawRoundedRectangle (well, 5.0f, 1.0f);
+    }
+
     g.setColour (kRed);
     g.setFont (juce::Font (12.0f, juce::Font::bold));
     g.drawText ("PATTERN", seq.reduced (12.0f, 4.0f), juce::Justification::topLeft);
-
-    // play-head: red LED above the active column + soft column glow
-    if (highlightStep >= 0 && ! gridArea.isEmpty())
-    {
-        const int n = (int) steps.size();
-        const float w = gridArea.getWidth() / (float) n;
-        const float x = gridArea.getX() + highlightStep * w;
-
-        g.setColour (kRed.withAlpha (0.12f));
-        g.fillRect (juce::Rectangle<float> (x, (float) gridArea.getY(), w, (float) gridArea.getHeight()));
-
-        auto led = juce::Rectangle<float> (7.0f, 7.0f)
-                       .withCentre ({ x + w * 0.5f, (float) gridArea.getY() - 7.0f });
-        g.setColour (kRed);
-        g.fillEllipse (led);
-        g.setColour (kRed.withAlpha (0.35f));
-        g.fillEllipse (led.expanded (3.0f));
-    }
+    // (the piano-roll component draws the play-head and the pattern itself)
 }
 
 void Rolly303Editor::resized()
@@ -422,30 +392,47 @@ void Rolly303Editor::resized()
     // --- on-screen keyboard along the bottom ---------------------------------
     keyboard.setBounds (area.removeFromBottom (72).reduced (2, 4));
 
-    // --- silver face: title + knob row ----------------------------------------
-    panelArea = area.removeFromTop (220);
-    auto knobRow = panelArea.withTrimmedTop (58).reduced (14, 6);
+    // --- silver face: branding + knobs ----------------------------------------
+    panelArea = area.removeFromTop (238);
 
+    // VOLUME sits on the far right, spanning the full knob height (like the panel)
+    auto faceBody = panelArea.withTrimmedTop (58).reduced (14, 8);
     {
-        // waveform switch column on the left, like the panel's switch position
-        auto waveCol = knobRow.removeFromLeft (110);
-        waveLabel.setBounds (waveCol.removeFromTop (16));
-        waveSwitch.setBounds (waveCol.withSizeKeepingCentre (waveCol.getWidth(), 36));
+        auto volCol = faceBody.removeFromRight (96);
+        volume.label.setBounds (volCol.removeFromTop (16));
+        volume.slider.setBounds (volCol.reduced (4));
+    }
 
-        Knob* knobs[] { &tempo, &tuning, &cutoff, &reso, &envmod, &decay, &accent, &volume };
+    // Top tone-knob row: TUNING, CUT OFF FREQ, RESONANCE, ENV MOD, DECAY, ACCENT
+    auto knobRow = faceBody.removeFromTop (juce::jmax (96, faceBody.getHeight() - 70));
+    {
+        Knob* knobs[] { &tuning, &cutoff, &reso, &envmod, &decay, &accent };
         const int n = (int) std::size (knobs);
         const int w = knobRow.getWidth() / n;
         for (auto* k : knobs)
         {
             auto col = knobRow.removeFromLeft (w);
             k->label.setBounds (col.removeFromTop (16));
-            k->slider.setBounds (col.reduced (2));
+            k->slider.setBounds (col.reduced (3));
         }
+    }
+
+    // Lower-left control zone: TEMPO knob + WAVEFORM switch (panel's SHUFFLE area)
+    faceBody.removeFromTop (6);
+    {
+        auto tempoCol = faceBody.removeFromLeft (96);
+        tempo.label.setBounds (tempoCol.removeFromTop (16));
+        tempo.slider.setBounds (tempoCol.reduced (4));
+
+        faceBody.removeFromLeft (12);
+        auto waveCol = faceBody.removeFromLeft (130);
+        waveLabel.setBounds (waveCol.removeFromTop (16));
+        waveSwitch.setBounds (waveCol.withSizeKeepingCentre (waveCol.getWidth(), 34));
     }
 
     area.removeFromTop (8);
 
-    // --- black sequencer section ----------------------------------------------
+    // --- sequencer deck -------------------------------------------------------
     seqArea = area;
     auto seq = seqArea.reduced (12, 8);
 
@@ -461,43 +448,278 @@ void Rolly303Editor::resized()
     octaveLabel.setBounds (transport.removeFromLeft (54));
     octaveSlider.setBounds (transport.removeFromLeft (96).reduced (0, 5));
 
-    seq.removeFromTop (14);                              // room for the play-head LEDs
+    seq.removeFromTop (6);
 
-    // --- step grid -----------------------------------------------------------
-    auto grid = seq;
-    auto labelCol = grid.removeFromLeft (48);
-    gridArea = grid;
+    // --- piano-roll pattern editor -------------------------------------------
+    gridArea = seq;
+    pianoRoll.setBounds (gridArea);
+}
 
-    const int n = (int) steps.size();
-    const float colW = grid.getWidth() / (float) n;
-
-    // Vertical layout of one column: pitch slider, then the three toggle rows.
-    const int btnH = 24;
-    const int pitchH = grid.getHeight() - 3 * btnH;
-
-    // Row labels on the left, aligned to the toggle rows.
-    auto lblBlock = labelCol;
-    lblBlock.removeFromTop (pitchH);
-    rowLabelPitch.setBounds (labelCol.getX(), grid.getY() + pitchH / 2 - 8, labelCol.getWidth() - 4, 16);
-    rowLabelGate  .setBounds (lblBlock.removeFromTop (btnH).withTrimmedRight (4));
-    rowLabelAccent.setBounds (lblBlock.removeFromTop (btnH).withTrimmedRight (4));
-    rowLabelSlide .setBounds (lblBlock.removeFromTop (btnH).withTrimmedRight (4));
-
-    for (int i = 0; i < n; ++i)
+//==============================================================================
+namespace
+{
+    constexpr bool isBlackKey (int semitone)
     {
-        auto& st = steps[(size_t) i];
-        juce::Rectangle<int> col (grid.getX() + (int) std::round (i * colW), grid.getY(),
-                                  (int) std::ceil (colW), grid.getHeight());
-        auto inner = col.reduced (2, 0);
-
-        st.pitch.setBounds (inner.removeFromTop (pitchH));
-
-        auto centreBtn = [] (juce::Rectangle<int> r)
+        switch (((semitone % 12) + 12) % 12)
         {
-            return r.withSizeKeepingCentre (juce::jmin (24, r.getWidth()), juce::jmin (20, r.getHeight()));
-        };
-        st.gate.setBounds   (centreBtn (inner.removeFromTop (btnH)));
-        st.accent.setBounds (centreBtn (inner.removeFromTop (btnH)));
-        st.slide.setBounds  (centreBtn (inner.removeFromTop (btnH)));
+            case 1: case 3: case 6: case 8: case 10: return true;
+            default:                                 return false;
+        }
+    }
+
+    const char* const kNoteNames[12] =
+        { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+}
+
+StepPianoRoll::StepPianoRoll (Rolly303Processor& p) : proc (p)
+{
+    setOpaque (true);
+    startTimerHz (24);
+}
+
+StepPianoRoll::~StepPianoRoll() { stopTimer(); }
+
+//==============================================================================
+int  StepPianoRoll::pitchOf (int step) const
+{
+    return (int) proc.apvts.getRawParameterValue ("p" + juce::String (step))->load();
+}
+
+bool StepPianoRoll::flagOf (const juce::String& prefix, int step) const
+{
+    return proc.apvts.getRawParameterValue (prefix + juce::String (step))->load() > 0.5f;
+}
+
+void StepPianoRoll::setNorm (const juce::String& id, float value01)
+{
+    if (auto* param = proc.apvts.getParameter (id))
+    {
+        param->beginChangeGesture();
+        param->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, value01));
+        param->endChangeGesture();
+    }
+}
+
+void StepPianoRoll::setPitch (int step, int pitch)
+{
+    const auto id = "p" + juce::String (step);
+    if (auto* param = proc.apvts.getParameter (id))
+        setNorm (id, param->convertTo0to1 ((float) juce::jlimit (0, kPitches - 1, pitch)));
+}
+
+//==============================================================================
+void StepPianoRoll::resized()
+{
+    auto r = getLocalBounds();
+    keyCol = r.removeFromLeft (48);          // full-height note keyboard / row labels
+    header = r.removeFromTop (16);           // step numbers across the grid
+
+    const int rowH = 18;
+    slideRow  = r.removeFromBottom (rowH);
+    accentRow = r.removeFromBottom (rowH);
+    r.removeFromBottom (2);
+    noteGrid  = r;
+}
+
+//==============================================================================
+void StepPianoRoll::paint (juce::Graphics& g)
+{
+    const int   n     = Rolly303Processor::kNumSteps;
+    const float colW  = noteGrid.getWidth()  / (float) n;
+    const float rowH  = noteGrid.getHeight() / (float) kPitches;
+    const int   ph    = proc.playingStep.load();
+
+    auto cellX = [&] (int step)  { return noteGrid.getX() + step * colW; };
+    auto rowY  = [&] (int pitch) { return noteGrid.getY() + (kPitches - 1 - pitch) * rowH; };
+
+    g.fillAll (kInset);
+
+    // --- left keyboard: one key per pitch row --------------------------------
+    for (int pitch = 0; pitch < kPitches; ++pitch)
+    {
+        const bool black = isBlackKey (pitch);
+        juce::Rectangle<float> key ((float) keyCol.getX() + 2.0f, rowY (pitch),
+                                    (float) keyCol.getWidth() - 3.0f, rowH);
+        g.setColour (black ? juce::Colour (0xff232327) : juce::Colour (0xffd7d7d2));
+        g.fillRect (key.reduced (0.0f, 0.5f));
+
+        if (! black && rowH >= 9.0f)   // label the white keys (octave number on C)
+        {
+            const int  semis = pitch % 12;
+            const juce::String name = juce::String (kNoteNames[semis])
+                                    + (semis == 0 ? juce::String (pitch / 12 + 1) : juce::String());
+            g.setColour (juce::Colour (0xff3a3a3a));
+            g.setFont (juce::Font (juce::jmin (11.0f, rowH - 1.0f)));
+            g.drawText (name, key.reduced (4.0f, 0.0f), juce::Justification::centredLeft);
+        }
+    }
+
+    // --- grid background: faint row shading + column lines -------------------
+    for (int pitch = 0; pitch < kPitches; ++pitch)
+        if (isBlackKey (pitch))
+        {
+            g.setColour (juce::Colours::black.withAlpha (0.18f));
+            g.fillRect ((float) noteGrid.getX(), rowY (pitch),
+                        (float) noteGrid.getWidth(), rowH);
+        }
+
+    for (int s = 0; s <= n; ++s)
+    {
+        const bool beat = (s % 4) == 0;
+        g.setColour (juce::Colours::white.withAlpha (beat ? 0.16f : 0.06f));
+        g.fillRect (cellX (s) - 0.5f, (float) noteGrid.getY(),
+                    beat ? 1.4f : 0.8f, (float) noteGrid.getHeight());
+    }
+
+    // --- play-head column ----------------------------------------------------
+    if (ph >= 0 && ph < n)
+    {
+        g.setColour (kRed.withAlpha (0.14f));
+        g.fillRect (cellX (ph), (float) noteGrid.getY(), colW, (float) noteGrid.getHeight());
+    }
+
+    // --- the pattern: one note cell per step + accent / slide rows -----------
+    for (int s = 0; s < n; ++s)
+    {
+        const int  pitch  = juce::jlimit (0, kPitches - 1, pitchOf (s));
+        const bool gate   = flagOf ("g", s);
+        const bool accent = flagOf ("a", s);
+        const bool slide  = flagOf ("s", s);
+
+        juce::Rectangle<float> cell (cellX (s) + 1.0f, rowY (pitch) + 1.0f,
+                                     colW - 2.0f, rowH - 2.0f);
+
+        if (gate)
+        {
+            // a slide step ties into the next step: draw a connecting bar
+            if (slide)
+            {
+                g.setColour (kRed.withAlpha (0.55f));
+                g.fillRect (cell.getX(), cell.getCentreY() - 2.0f,
+                            colW, 4.0f);
+            }
+            g.setColour (accent ? juce::Colour (0xffff7a2a) : kRed);
+            g.fillRoundedRectangle (cell, 2.5f);
+            g.setColour (juce::Colours::white.withAlpha (0.25f));
+            g.drawRoundedRectangle (cell, 2.5f, 1.0f);
+        }
+        else
+        {
+            // a rest still remembers its note — show a faint ghost outline
+            g.setColour (kSeqText.withAlpha (0.18f));
+            g.drawRoundedRectangle (cell, 2.5f, 1.0f);
+        }
+    }
+
+    // --- step-number header --------------------------------------------------
+    g.setFont (juce::Font (10.0f, juce::Font::bold));
+    for (int s = 0; s < n; ++s)
+    {
+        const bool beat = (s % 4) == 0;
+        g.setColour (s == ph ? kRed : (beat ? kSeqText : kSeqText.withAlpha (0.55f)));
+        g.drawText (juce::String (s + 1),
+                    juce::Rectangle<float> (cellX (s), (float) header.getY(), colW, (float) header.getHeight()),
+                    juce::Justification::centred);
+    }
+
+    // --- ACCENT / SLIDE toggle rows ------------------------------------------
+    auto drawFlagRow = [&] (juce::Rectangle<int> row, const juce::String& prefix,
+                            const juce::String& label, juce::Colour lit)
+    {
+        g.setColour (kSeqText);
+        g.setFont (juce::Font (10.0f, juce::Font::bold));
+        g.drawText (label, juce::Rectangle<int> (keyCol.getX(), row.getY(), keyCol.getWidth() - 4, row.getHeight()),
+                    juce::Justification::centredRight);
+
+        for (int s = 0; s < n; ++s)
+        {
+            juce::Rectangle<float> cell (cellX (s) + 2.0f, (float) row.getY() + 2.0f,
+                                         colW - 4.0f, (float) row.getHeight() - 4.0f);
+            const bool on = flagOf (prefix, s);
+            g.setColour (on ? lit : kBtnBody);
+            g.fillRoundedRectangle (cell, 3.0f);
+            g.setColour (juce::Colours::black.withAlpha (0.6f));
+            g.drawRoundedRectangle (cell, 3.0f, 1.0f);
+            if (on)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.85f));
+                g.fillEllipse (cell.withSizeKeepingCentre (4.0f, 4.0f));
+            }
+        }
+    };
+
+    drawFlagRow (accentRow, "a", "ACCENT", juce::Colour (0xffff7a2a));
+    drawFlagRow (slideRow,  "s", "SLIDE",  kRed);
+
+    // outline
+    g.setColour (juce::Colours::black);
+    g.drawRect (getLocalBounds(), 1);
+}
+
+//==============================================================================
+void StepPianoRoll::editAt (juce::Point<int> pos, bool isDrag)
+{
+    const int   n    = Rolly303Processor::kNumSteps;
+    const float colW = noteGrid.getWidth()  / (float) n;
+    const float rowH = noteGrid.getHeight() / (float) kPitches;
+
+    if (noteGrid.contains (pos))
+    {
+        const int step = juce::jlimit (0, n - 1,
+                            (int) ((pos.x - noteGrid.getX()) / colW));
+        const int row  = juce::jlimit (0, kPitches - 1,
+                            (int) ((pos.y - noteGrid.getY()) / rowH));
+        const int pitch = kPitches - 1 - row;
+
+        // Click the lit note again to turn the step into a rest; otherwise set
+        // the note and make sure the step sounds. Dragging only paints notes.
+        if (! isDrag && flagOf ("g", step) && pitchOf (step) == pitch)
+        {
+            setNorm ("g" + juce::String (step), 0.0f);
+        }
+        else
+        {
+            setPitch (step, pitch);
+            setNorm ("g" + juce::String (step), 1.0f);
+        }
+        return;
+    }
+
+    if (isDrag) return;   // accent / slide toggles respond to clicks only
+
+    auto toggleRow = [&] (juce::Rectangle<int> row, const juce::String& prefix)
+    {
+        if (! row.contains (pos)) return false;
+        const int step = juce::jlimit (0, n - 1, (int) ((pos.x - noteGrid.getX()) / colW));
+        setNorm (prefix + juce::String (step), flagOf (prefix, step) ? 0.0f : 1.0f);
+        return true;
+    };
+
+    toggleRow (accentRow, "a") || toggleRow (slideRow, "s");
+}
+
+void StepPianoRoll::mouseDown (const juce::MouseEvent& e) { editAt (e.getPosition(), false); }
+void StepPianoRoll::mouseDrag (const juce::MouseEvent& e) { editAt (e.getPosition(), true);  }
+
+//==============================================================================
+void StepPianoRoll::timerCallback()
+{
+    // Repaint only when the pattern or the play-head actually changed, so host
+    // automation and external edits stay reflected without constant redraws.
+    juce::int64 snap = 0;
+    for (int s = 0; s < Rolly303Processor::kNumSteps; ++s)
+    {
+        snap = snap * 131 + pitchOf (s);
+        snap = snap * 2 + (flagOf ("g", s) ? 1 : 0);
+        snap = snap * 2 + (flagOf ("a", s) ? 1 : 0);
+        snap = snap * 2 + (flagOf ("s", s) ? 1 : 0);
+    }
+
+    const int ph = proc.playingStep.load();
+    if (snap != lastSnapshot || ph != lastPlayHead)
+    {
+        lastSnapshot = snap;
+        lastPlayHead = ph;
+        repaint();
     }
 }
