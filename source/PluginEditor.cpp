@@ -243,6 +243,9 @@ Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     playAtt = std::make_unique<ButtonAttachment> (processor.apvts, "playing",  playButton);
     syncAtt = std::make_unique<ButtonAttachment> (processor.apvts, "syncHost", syncButton);
 
+    addAndMakeVisible (randomizeButton);
+    randomizeButton.onClick = [this] { randomizePattern(); };
+
     rootBox.addItemList ({ "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" }, 1);
     addAndMakeVisible (rootBox);
     rootAtt = std::make_unique<ComboAttachment> (processor.apvts, "root", rootBox);
@@ -320,6 +323,43 @@ void Rolly303Editor::addKnob (Knob& k, const juce::String& paramID, const juce::
     addAndMakeVisible (k.label);
 
     k.attach = std::make_unique<SliderAttachment> (processor.apvts, paramID, k.slider);
+}
+
+//==============================================================================
+void Rolly303Editor::randomizePattern()
+{
+    // Roll a fresh acid line: notes drawn from a minor scale (often a couple of
+    // them up an octave), mostly-on gates, and a sprinkling of accents/slides.
+    static const int scale[] = { 0, 2, 3, 5, 7, 8, 10, 12 };
+
+    auto& vts = processor.apvts;
+    juce::Random rnd;
+
+    auto setNorm = [&] (const juce::String& id, float v01)
+    {
+        if (auto* p = vts.getParameter (id))
+        {
+            p->beginChangeGesture();
+            p->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, v01));
+            p->endChangeGesture();
+        }
+    };
+
+    for (int i = 0; i < Rolly303Processor::kNumSteps; ++i)
+    {
+        const auto s = juce::String (i);
+
+        int pitch = scale[rnd.nextInt (juce::numElementsInArray (scale))];
+        if (rnd.nextFloat() < 0.30f) pitch += 12;           // occasional octave jump
+        pitch = juce::jlimit (0, 24, pitch);
+
+        if (auto* p = vts.getParameter ("p" + s))
+            setNorm ("p" + s, p->convertTo0to1 ((float) pitch));
+
+        setNorm ("g" + s, rnd.nextFloat() < 0.85f ? 1.0f : 0.0f);   // ~15% rests
+        setNorm ("a" + s, rnd.nextFloat() < 0.30f ? 1.0f : 0.0f);   // ~30% accents
+        setNorm ("s" + s, rnd.nextFloat() < 0.20f ? 1.0f : 0.0f);   // ~20% slides
+    }
 }
 
 //==============================================================================
@@ -485,6 +525,8 @@ void Rolly303Editor::resized()
     transport.removeFromLeft (16);
     octaveLabel.setBounds (transport.removeFromLeft (54));
     octaveSlider.setBounds (transport.removeFromLeft (96).reduced (0, 5));
+
+    randomizeButton.setBounds (transport.removeFromRight (110).reduced (0, 3));
 
     seq.removeFromTop (6);
 

@@ -160,6 +160,7 @@ private:
     };
 
     void addKnob (Knob& k, const juce::String& paramID, const juce::String& name);
+    void randomizePattern();
 
     Rolly303Processor& processor;
 
@@ -172,6 +173,7 @@ private:
 
     // sequencer transport
     juce::ToggleButton playButton { "RUN/STOP" }, syncButton { "SYNC" };
+    juce::TextButton   randomizeButton { "RANDOMIZE" };
     juce::Slider       octaveSlider;
     juce::ComboBox     rootBox;
     juce::Label        rootLabel, octaveLabel;
