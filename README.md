@@ -15,6 +15,8 @@ A standalone synthesizer and **VST3 plugin** that emulates the **Roland TB‑303
 - **Accent** — high‑velocity notes force a fast fixed envelope decay (~200 ms), add punch to the VCA, and drive the filter through the accent **sweep capacitor**: its charging runs through the resonance pot, so at high resonance repeated accents build up the famous "wow‑wow" sweep.
 - **Slide** — overlapping (legato) notes glide in pitch over the 303's fixed ~60 ms, with the envelope *not* retriggering, just like the original.
 - **Built‑in 16‑step sequencer** with a **piano‑roll pattern editor** — set each step's note on the keyboard grid, with **per‑step accent, slide and rest** — the other half of what makes a 303 a 303.
+- **Scale highlighting** — pick a **root** and one of **10 scales** (Major, Minor, Harmonic / Melodic Minor, and the Dorian, Phrygian, Lydian, Mixolydian, Locrian modes, plus Chromatic). The piano roll tints the in‑scale rows and the tonic, so you stay in key while writing patterns.
+- **Randomize** — one click rolls a fresh acid pattern, drawing its notes only from the selected scale.
 - **Tuning** (±12 semitones), **Cutoff**, **Resonance**, **Env Mod**, **Decay**, **Accent**, **Volume**.
 - **On‑screen keyboard** in the standalone app, plus full MIDI input in any DAW.
 - Cross‑platform: **Windows** and **Linux**, **Standalone + VST3**.
@@ -51,8 +53,10 @@ itself, so it works in the **standalone app and in any DAW**.
 | **RUN**    | Start / stop the pattern. When off, the synth plays from MIDI / the on‑screen keyboard instead. |
 | **SYNC**   | Lock tempo **and bar position** to your DAW's transport. Leave off to use the internal Tempo knob (and for the standalone app). |
 | **TEMPO**  | Internal tempo in BPM (used when SYNC is off). |
-| **ROOT**   | The root note the pattern is built from (C…B). |
+| **ROOT**   | The root note the pattern is built from (C…B). The piano‑roll keyboard and the scale highlight follow it. |
 | **OCTAVE** | Shift the whole pattern up/down by octaves. |
+| **SCALE**  | The scale used to highlight in‑key rows in the piano roll and to constrain **RANDOMIZE**. 10 choices: Chromatic, Major, Minor, Harmonic Minor, Melodic Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian. |
+| **RANDOMIZE** | Roll a brand‑new pattern — notes are picked from the current scale, with randomised gates, accents and slides. |
 
 ### The piano‑roll pattern editor (the grid)
 
@@ -69,12 +73,18 @@ a keyboard, not with faders. The grid has a vertical keyboard down the left side
 - **SLIDE** row — glides *from this step into the next one* without re‑plucking the
   envelope, producing the signature 303 portamento (drawn as a tie‑bar).
 
+The rows that belong to the chosen **ROOT + SCALE** are tinted (the tonic a little
+warmer), so the notes that are in key stand out as you click them in. Changing the
+root re‑labels the keyboard and shifts the highlight with it. **RANDOMIZE** fills the
+whole pattern with fresh in‑scale notes in one click.
+
 The currently playing step's column is highlighted while the sequencer runs.
 The whole pattern (and every knob) is saved with your DAW project and restored on reload.
 
 ### Quick start
 Press **RUN**. The synth ships with a default acid riff so you'll hear sound
-immediately — then click notes into the piano roll, toggle some ACCENT/SLIDE
+immediately — then click notes into the piano roll (or hit **RANDOMIZE** for a fresh
+one), pick a **ROOT** and **SCALE** to keep it in key, toggle some ACCENT/SLIDE
 cells, and dial in **Cutoff / Resonance / Env Mod / Decay** to taste.
 
 ---
