@@ -15,6 +15,21 @@ namespace
     const juce::Colour kSeqText   { 0xffeceae4 };   // light print on the lower deck
     const juce::Colour kBtnBody   { 0xff26262a };   // dark keys / step buttons
     const juce::Colour kInset     { 0xff1b1b1e };   // recessed display wells
+    const juce::Colour kBackdrop  { 0xffb9e4f0 };   // soft cyan behind the unit
+    const juce::Colour kBezelHi   { 0xffdedeDB };   // brushed-metal chassis frame
+    const juce::Colour kBezelLo   { 0xff97978f };
+
+    // small recessed Phillips screw, for the metal-chassis corners
+    void drawScrew (juce::Graphics& g, juce::Point<float> c, float r = 5.0f)
+    {
+        g.setColour (juce::Colour (0xff7d7d77));
+        g.fillEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
+        g.setColour (juce::Colour (0xff3a3a37));
+        g.drawEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f, 1.0f);
+        g.setColour (juce::Colour (0xff2b2b28));   // cross slot
+        g.drawLine (c.x - r * 0.6f, c.y, c.x + r * 0.6f, c.y, 1.2f);
+        g.drawLine (c.x, c.y - r * 0.6f, c.x, c.y + r * 0.6f, 1.2f);
+    }
 
     void drawWaveGlyph (juce::Graphics& g, juce::Rectangle<float> r, bool square)
     {
@@ -310,7 +325,30 @@ void Rolly303Editor::addKnob (Knob& k, const juce::String& paramID, const juce::
 //==============================================================================
 void Rolly303Editor::paint (juce::Graphics& g)
 {
-    g.fillAll (kCase);
+    // soft cyan backdrop, like the unit photographed on a light surface
+    g.fillAll (kBackdrop);
+    g.setGradientFill (juce::ColourGradient (kBackdrop.brighter (0.10f), 0.0f, 0.0f,
+                                             kBackdrop.darker (0.12f), 0.0f, (float) getHeight(), false));
+    g.fillRect (getLocalBounds());
+
+    // --- brushed-metal chassis the modules are bolted onto -------------------
+    auto body = getLocalBounds().reduced (5).toFloat();
+    g.setGradientFill (juce::ColourGradient (kBezelHi, body.getTopLeft(),
+                                             kBezelLo, body.getBottomLeft(), false));
+    g.fillRoundedRectangle (body, 14.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.045f));
+    for (float yy = body.getY() + 3.0f; yy < body.getBottom(); yy += 3.0f)
+        g.drawHorizontalLine ((int) yy, body.getX() + 3.0f, body.getRight() - 3.0f);
+    g.setColour (juce::Colour (0xff5a5a55));
+    g.drawRoundedRectangle (body, 14.0f, 1.5f);
+    g.setColour (juce::Colours::white.withAlpha (0.35f));
+    g.drawRoundedRectangle (body.reduced (1.5f), 13.0f, 1.0f);
+
+    // corner mounting screws
+    for (auto p : { body.getTopLeft(), body.getTopRight(),
+                    body.getBottomLeft(), body.getBottomRight() })
+        drawScrew (g, p.translated (p.x < body.getCentreX() ? 13.0f : -13.0f,
+                                    p.y < body.getCentreY() ? 13.0f : -13.0f));
 
     // --- brushed-silver upper face -------------------------------------------
     auto face = panelArea.toFloat();
