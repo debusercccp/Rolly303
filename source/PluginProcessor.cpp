@@ -79,6 +79,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout Rolly303Processor::createLay
     layout.add (std::make_unique<AudioParameterInt> (
         ParameterID { "octave", 1 }, "Octave", -2, 2, 0));
 
+    // Scale used for the piano-roll highlight and the randomiser (relative to Root).
+    layout.add (std::make_unique<AudioParameterChoice> (
+        ParameterID { "scale", 1 }, "Scale", acidscale::names(), 2 /* Minor */));
+
     // --- per-step pattern ----------------------------------------------------
     // A simple default acid riff so the sequencer makes noise out of the box.
     const int  defPitch [kNumSteps] = { 0,0,12,0, 3,0,0,7, 0,10,0,0, 5,0,0,3 };

@@ -264,6 +264,14 @@ Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     octaveLabel.setColour (juce::Label::textColourId, kSeqText);
     addAndMakeVisible (octaveLabel);
 
+    scaleBox.addItemList (acidscale::names(), 1);
+    addAndMakeVisible (scaleBox);
+    scaleAtt = std::make_unique<ComboAttachment> (processor.apvts, "scale", scaleBox);
+    scaleLabel.setText ("SCALE", juce::dontSendNotification);
+    scaleLabel.setFont (juce::Font (11.0f, juce::Font::bold));
+    scaleLabel.setColour (juce::Label::textColourId, kSeqText);
+    addAndMakeVisible (scaleLabel);
+
     // --- pattern editor (piano roll) -----------------------------------------
     addAndMakeVisible (pianoRoll);
 
@@ -328,12 +336,20 @@ void Rolly303Editor::addKnob (Knob& k, const juce::String& paramID, const juce::
 //==============================================================================
 void Rolly303Editor::randomizePattern()
 {
-    // Roll a fresh acid line: notes drawn from a minor scale (often a couple of
-    // them up an octave), mostly-on gates, and a sprinkling of accents/slides.
-    static const int scale[] = { 0, 2, 3, 5, 7, 8, 10, 12 };
-
+    // Roll a fresh acid line whose notes stay within the selected scale (over the
+    // two-octave step range), with mostly-on gates and some accents/slides.
     auto& vts = processor.apvts;
     juce::Random rnd;
+
+    const int scaleIdx = (int) vts.getRawParameterValue ("scale")->load();
+    const juce::uint16 mask = acidscale::maskAt (scaleIdx);
+
+    juce::Array<int> pool;                       // in-scale pitches across 0..24
+    for (int p = 0; p <= 24; ++p)
+        if (mask & (juce::uint16) (1u << (p % 12)))
+            pool.add (p);
+    if (pool.isEmpty())                          // safety: fall back to chromatic
+        for (int p = 0; p <= 24; ++p) pool.add (p);
 
     auto setNorm = [&] (const juce::String& id, float v01)
     {
@@ -349,10 +365,7 @@ void Rolly303Editor::randomizePattern()
     {
         const auto s = juce::String (i);
 
-        int pitch = scale[rnd.nextInt (juce::numElementsInArray (scale))];
-        if (rnd.nextFloat() < 0.30f) pitch += 12;           // occasional octave jump
-        pitch = juce::jlimit (0, 24, pitch);
-
+        const int pitch = pool[rnd.nextInt (pool.size())];
         if (auto* p = vts.getParameter ("p" + s))
             setNorm ("p" + s, p->convertTo0to1 ((float) pitch));
 
@@ -526,6 +539,10 @@ void Rolly303Editor::resized()
     octaveLabel.setBounds (transport.removeFromLeft (54));
     octaveSlider.setBounds (transport.removeFromLeft (96).reduced (0, 5));
 
+    transport.removeFromLeft (20);
+    scaleLabel.setBounds (transport.removeFromLeft (44));
+    scaleBox.setBounds (transport.removeFromLeft (124).reduced (0, 5));
+
     randomizeButton.setBounds (transport.removeFromRight (110).reduced (0, 3));
 
     seq.removeFromTop (6);
@@ -612,36 +629,68 @@ void StepPianoRoll::paint (juce::Graphics& g)
     auto cellX = [&] (int step)  { return noteGrid.getX() + step * colW; };
     auto rowY  = [&] (int pitch) { return noteGrid.getY() + (kPitches - 1 - pitch) * rowH; };
 
+    // Root note and selected scale: pitch rows are relative to Root (pitch 0 is
+    // the root), so the keyboard names, the black/white keys and the in-scale
+    // highlight are all keyed to the chosen Root + Scale.
+    const int          root  = (int) proc.apvts.getRawParameterValue ("root")->load();
+    const juce::uint16 mask  = acidscale::maskAt ((int) proc.apvts.getRawParameterValue ("scale")->load());
+
+    auto absSemi  = [&] (int pitch) { return ((root + pitch) % 12 + 12) % 12; };
+    auto inScale  = [&] (int pitch) { return (mask & (juce::uint16) (1u << (pitch % 12))) != 0; };
+    auto isTonic  = [&] (int pitch) { return (pitch % 12) == 0; };
+
+    const juce::Colour kScaleTint { 0xff2f6f74 };   // teal lane for in-scale rows
+    const juce::Colour kTonicTint { 0xff7a4a2a };   // warmer lane for the root rows
+
     g.fillAll (kInset);
 
-    // --- left keyboard: one key per pitch row --------------------------------
+    // --- left keyboard: one key per pitch row (named for the actual notes) ----
     for (int pitch = 0; pitch < kPitches; ++pitch)
     {
-        const bool black = isBlackKey (pitch);
+        const int  semis = absSemi (pitch);
+        const bool black = isBlackKey (semis);
         juce::Rectangle<float> key ((float) keyCol.getX() + 2.0f, rowY (pitch),
                                     (float) keyCol.getWidth() - 3.0f, rowH);
         g.setColour (black ? juce::Colour (0xff232327) : juce::Colour (0xffd7d7d2));
         g.fillRect (key.reduced (0.0f, 0.5f));
 
-        if (! black && rowH >= 9.0f)   // label the white keys (octave number on C)
+        if (isTonic (pitch))            // mark the root key with a red tab
         {
-            const int  semis = pitch % 12;
+            g.setColour (kRed);
+            g.fillRect (key.getX(), key.getY() + 0.5f, 3.0f, rowH - 1.0f);
+        }
+
+        if (! black && rowH >= 9.0f)    // label the white keys (octave number on C)
+        {
             const juce::String name = juce::String (kNoteNames[semis])
                                     + (semis == 0 ? juce::String (pitch / 12 + 1) : juce::String());
             g.setColour (juce::Colour (0xff3a3a3a));
             g.setFont (juce::Font (juce::jmin (11.0f, rowH - 1.0f)));
-            g.drawText (name, key.reduced (4.0f, 0.0f), juce::Justification::centredLeft);
+            g.drawText (name, key.reduced (6.0f, 0.0f), juce::Justification::centredLeft);
         }
     }
 
-    // --- grid background: faint row shading + column lines -------------------
+    // --- grid background: scale-highlighted lanes ----------------------------
     for (int pitch = 0; pitch < kPitches; ++pitch)
-        if (isBlackKey (pitch))
+    {
+        const juce::Rectangle<float> lane ((float) noteGrid.getX(), rowY (pitch),
+                                           (float) noteGrid.getWidth(), rowH);
+        if (isTonic (pitch))
+        {
+            g.setColour (kTonicTint.withAlpha (0.55f));
+            g.fillRect (lane);
+        }
+        else if (inScale (pitch))
+        {
+            g.setColour (kScaleTint.withAlpha (0.30f));
+            g.fillRect (lane);
+        }
+        else if (isBlackKey (absSemi (pitch)))   // out-of-scale: keep it recessed
         {
             g.setColour (juce::Colours::black.withAlpha (0.18f));
-            g.fillRect ((float) noteGrid.getX(), rowY (pitch),
-                        (float) noteGrid.getWidth(), rowH);
+            g.fillRect (lane);
         }
+    }
 
     for (int s = 0; s <= n; ++s)
     {
@@ -794,6 +843,9 @@ void StepPianoRoll::timerCallback()
         snap = snap * 2 + (flagOf ("a", s) ? 1 : 0);
         snap = snap * 2 + (flagOf ("s", s) ? 1 : 0);
     }
+    // root / scale change the highlight and key labels, so fold them in too
+    snap = snap * 13 + (int) proc.apvts.getRawParameterValue ("root")->load();
+    snap = snap * 13 + (int) proc.apvts.getRawParameterValue ("scale")->load();
 
     const int ph = proc.playingStep.load();
     if (snap != lastSnapshot || ph != lastPlayHead)

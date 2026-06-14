@@ -1,7 +1,55 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <vector>
 #include "TB303Engine.h"
+
+//==============================================================================
+// Musical scales used both for the "scale" parameter (choice list) and for the
+// piano-roll highlighting / randomiser. Each scale is a 12-bit mask where bit i
+// means semitone i (measured from the root) belongs to the scale.
+namespace acidscale
+{
+    struct Scale { const char* name; juce::uint16 mask; };
+
+    inline juce::uint16 maskFor (std::initializer_list<int> degrees)
+    {
+        juce::uint16 r = 0;
+        for (int d : degrees) r |= (juce::uint16) (1u << d);
+        return r;
+    }
+
+    inline const std::vector<Scale>& all()
+    {
+        static const std::vector<Scale> s =
+        {
+            { "Chromatic",      0x0FFFu },
+            { "Major",          maskFor ({ 0, 2, 4, 5, 7, 9, 11 }) },
+            { "Minor",          maskFor ({ 0, 2, 3, 5, 7, 8, 10 }) },
+            { "Harmonic Minor", maskFor ({ 0, 2, 3, 5, 7, 8, 11 }) },
+            { "Melodic Minor",  maskFor ({ 0, 2, 3, 5, 7, 9, 11 }) },
+            { "Dorian",         maskFor ({ 0, 2, 3, 5, 7, 9, 10 }) },
+            { "Phrygian",       maskFor ({ 0, 1, 3, 5, 7, 8, 10 }) },
+            { "Lydian",         maskFor ({ 0, 2, 4, 6, 7, 9, 11 }) },
+            { "Mixolydian",     maskFor ({ 0, 2, 4, 5, 7, 9, 10 }) },
+            { "Locrian",        maskFor ({ 0, 1, 3, 5, 6, 8, 10 }) },
+        };
+        return s;
+    }
+
+    inline juce::StringArray names()
+    {
+        juce::StringArray a;
+        for (const auto& sc : all()) a.add (sc.name);
+        return a;
+    }
+
+    inline juce::uint16 maskAt (int index)
+    {
+        const auto& a = all();
+        return a[(size_t) juce::jlimit (0, (int) a.size() - 1, index)].mask;
+    }
+}
 
 //==============================================================================
 class Rolly303Processor : public juce::AudioProcessor

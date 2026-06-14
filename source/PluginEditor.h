@@ -175,11 +175,11 @@ private:
     juce::ToggleButton playButton { "RUN/STOP" }, syncButton { "SYNC" };
     juce::TextButton   randomizeButton { "RANDOMIZE" };
     juce::Slider       octaveSlider;
-    juce::ComboBox     rootBox;
-    juce::Label        rootLabel, octaveLabel;
+    juce::ComboBox     rootBox, scaleBox;
+    juce::Label        rootLabel, octaveLabel, scaleLabel;
     std::unique_ptr<ButtonAttachment> playAtt, syncAtt;
     std::unique_ptr<SliderAttachment> octaveAtt;
-    std::unique_ptr<ComboAttachment>  rootAtt;
+    std::unique_ptr<ComboAttachment>  rootAtt, scaleAtt;
 
     // sequencer pattern editor (piano roll)
     StepPianoRoll pianoRoll;
