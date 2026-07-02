@@ -395,9 +395,16 @@ void Rolly303Processor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         // While the pattern runs, the keyboard transposes it instead of playing
         // notes directly (the hardware's pattern-play transposition). C3 = 0.
+        // Everything else (note-offs in particular) still reaches the voice, so
+        // a key held across the RUN transition doesn't leave a stuck note.
         for (const auto meta : midiMessages)
-            if (const auto msg = meta.getMessage(); msg.isNoteOn())
+        {
+            const auto msg = meta.getMessage();
+            if (msg.isNoteOn())
                 seqTranspose.store (juce::jlimit (-24, 24, msg.getNoteNumber() - 60));
+            else
+                voiceMidi.addEvent (msg, meta.samplePosition);
+        }
     }
     else
     {

@@ -319,6 +319,13 @@ public:
     void noteOn (int midiNote, float velocity)
     {
         const bool wasSilent = heldNotes.empty();
+
+        // A note-on for a pitch already in the stack (e.g. a slide onto the
+        // same note) must not create a duplicate entry: its single note-off
+        // would leave a stuck copy behind, and from then on the stack never
+        // empties — turning every following note into a slide.
+        heldNotes.erase (std::remove (heldNotes.begin(), heldNotes.end(), midiNote),
+                         heldNotes.end());
         heldNotes.push_back (midiNote);
 
         const bool accented = velocity >= 0.62f;          // high velocity = accent
@@ -330,8 +337,9 @@ public:
     void noteOff (int midiNote)
     {
         auto it = std::find (heldNotes.rbegin(), heldNotes.rend(), midiNote);
-        if (it != heldNotes.rend())
-            heldNotes.erase (std::next (it).base());
+        if (it == heldNotes.rend())
+            return;                       // stray note-off: nothing to release
+        heldNotes.erase (std::next (it).base());
 
         if (heldNotes.empty())
         {
