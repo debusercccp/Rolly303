@@ -12,6 +12,13 @@ namespace ids
     constexpr auto decay  = "decay";
     constexpr auto accent = "accent";
     constexpr auto volume = "volume";
+
+    // modern (TB-03 / plug-in era) extras
+    constexpr auto drive    = "drive";
+    constexpr auto delayTime = "delaytime";
+    constexpr auto delayFb   = "delayfb";
+    constexpr auto delayMix  = "delaymix";
+    constexpr auto playMode  = "playmode";
 }
 
 //==============================================================================
@@ -60,6 +67,27 @@ juce::AudioProcessorValueTreeState::ParameterLayout Rolly303Processor::createLay
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ids::volume, 1 }, "Volume",
         NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.8f));
+
+    // --- modern extras (as on the TB-03 / software recreations) ---------------
+    layout.add (std::make_unique<AudioParameterFloat> (
+        ParameterID { ids::drive, 1 }, "Overdrive",
+        NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f));
+
+    layout.add (std::make_unique<AudioParameterFloat> (
+        ParameterID { ids::delayTime, 1 }, "Delay Time",
+        NormalisableRange<float> (60.0f, 1000.0f, 1.0f, 0.5f), 375.0f, "ms"));
+
+    layout.add (std::make_unique<AudioParameterFloat> (
+        ParameterID { ids::delayFb, 1 }, "Delay Feedback",
+        NormalisableRange<float> (0.0f, 0.9f, 0.001f), 0.35f));
+
+    layout.add (std::make_unique<AudioParameterFloat> (
+        ParameterID { ids::delayMix, 1 }, "Delay Mix",
+        NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f));
+
+    layout.add (std::make_unique<AudioParameterChoice> (
+        ParameterID { ids::playMode, 1 }, "Play Mode",
+        StringArray { "Forward", "Reverse", "Ping-Pong", "Random" }, 0));
 
     // --- sequencer transport -------------------------------------------------
     layout.add (std::make_unique<AudioParameterBool> (
@@ -120,6 +148,9 @@ void Rolly303Processor::prepareToPlay (double sr, int)
     seqGateOffPos = 1.0e18;
     wasPlaying = false;
     playingStep.store (-1);
+    seqTranspose.store (0);
+    delayBuf.assign ((size_t) std::max (1.0, sr * 2.0), 0.0f);
+    delayWrite = 0;
 }
 
 bool Rolly303Processor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -141,6 +172,7 @@ void Rolly303Processor::updateEngineParams()
     p.envMod      = apvts.getRawParameterValue (ids::envmod)->load();
     p.decayMs     = apvts.getRawParameterValue (ids::decay)->load();
     p.accent      = apvts.getRawParameterValue (ids::accent)->load();
+    p.drive       = apvts.getRawParameterValue (ids::drive)->load();
     p.volume      = apvts.getRawParameterValue (ids::volume)->load();
     engine.setParams (p);
 }
@@ -164,7 +196,8 @@ void Rolly303Processor::triggerStepMidi (juce::MidiBuffer& seq, int index, int s
 
     const int root   = (int) apvts.getRawParameterValue ("root")->load();
     const int octave = (int) apvts.getRawParameterValue ("octave")->load();
-    const int note   = 36 + root + octave * 12 + cur.pitch;   // bass register
+    const int note   = juce::jlimit (0, 127,                  // bass register
+        36 + root + octave * 12 + cur.pitch + seqTranspose.load());
 
     if (cur.gate)
     {
@@ -212,6 +245,7 @@ void Rolly303Processor::renderSequencerMidi (juce::MidiBuffer& seq, int numSampl
         seqLastStep = -1;
         seqCurNote = -1;
         seqGateOffPos = 1.0e18;
+        seqTranspose.store (0);
     }
 
     // Lock to the host's tempo and transport position (e.g. Ableton's BPM).
@@ -227,13 +261,28 @@ void Rolly303Processor::renderSequencerMidi (juce::MidiBuffer& seq, int numSampl
             }
 
     const double inc = tempo * 4.0 / 60.0 / sampleRate;   // steps advanced per sample
+    const int mode = (int) apvts.getRawParameterValue ("playmode")->load();
 
     for (int s = 0; s < numSamples; ++s)
     {
         const long long istep = (long long) std::floor (seqStepPos);
         if (istep != seqLastStep)
         {
-            const int idx = (int) (((istep % kNumSteps) + kNumSteps) % kNumSteps);
+            // Map the absolute step counter onto a pattern index per play mode
+            // (Forward / Reverse / Ping-Pong / Random, as on the TB-03).
+            const int m16 = (int) (((istep % kNumSteps) + kNumSteps) % kNumSteps);
+            int idx = m16;
+            if (mode == 1)                      // Reverse
+                idx = kNumSteps - 1 - m16;
+            else if (mode == 2)                 // Ping-Pong (ends not repeated)
+            {
+                constexpr int period = 2 * kNumSteps - 2;
+                const int t = (int) (((istep % period) + period) % period);
+                idx = t < kNumSteps ? t : period - t;
+            }
+            else if (mode == 3)                 // Random
+                idx = seqRandom.nextInt (kNumSteps);
+
             triggerStepMidi (seq, idx, s);
             seqLastStep = istep;
             playingStep.store (idx);
@@ -275,10 +324,35 @@ void Rolly303Processor::renderVoice (juce::AudioBuffer<float>& buffer,
 
     while (sample < numSamples)
         left[sample++] = engine.renderSample();
+}
 
-    // Mirror the mono voice to any additional output channels.
-    for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
-        buffer.copyFrom (ch, 0, left, numSamples);
+//==============================================================================
+// Simple feedback delay on the mono voice (TB-03-style extra). Dry signal
+// passes at full level; MIX sets how much of the delayed signal is added.
+void Rolly303Processor::applyDelay (float* channel, int numSamples)
+{
+    const float mix = apvts.getRawParameterValue (ids::delayMix)->load();
+    const int   size = (int) delayBuf.size();
+    if (size < 2)
+        return;
+
+    const float timeMs = apvts.getRawParameterValue (ids::delayTime)->load();
+    const float fb     = apvts.getRawParameterValue (ids::delayFb)->load();
+    const int   delaySamps = juce::jlimit (1, size - 1,
+                                 (int) (timeMs * 0.001 * sampleRate));
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        int rp = delayWrite - delaySamps;
+        if (rp < 0) rp += size;
+
+        const float d = delayBuf[(size_t) rp];
+        delayBuf[(size_t) delayWrite] = channel[i] + d * fb;
+        channel[i] += mix * d;
+
+        if (++delayWrite >= size)
+            delayWrite = 0;
+    }
 }
 
 //==============================================================================
@@ -317,9 +391,25 @@ void Rolly303Processor::processBlock (juce::AudioBuffer<float>& buffer,
     // Drive the internal voice from the keyboard/external MIDI plus the
     // sequencer's MIDI, all sample-accurate and in timestamp order.
     juce::MidiBuffer voiceMidi;
-    voiceMidi.addEvents (midiMessages, 0, numSamples, 0);
-    voiceMidi.addEvents (seqMidi,      0, numSamples, 0);
+    if (playing)
+    {
+        // While the pattern runs, the keyboard transposes it instead of playing
+        // notes directly (the hardware's pattern-play transposition). C3 = 0.
+        for (const auto meta : midiMessages)
+            if (const auto msg = meta.getMessage(); msg.isNoteOn())
+                seqTranspose.store (juce::jlimit (-24, 24, msg.getNoteNumber() - 60));
+    }
+    else
+    {
+        voiceMidi.addEvents (midiMessages, 0, numSamples, 0);
+    }
+    voiceMidi.addEvents (seqMidi, 0, numSamples, 0);
     renderVoice (buffer, voiceMidi, numSamples);
+
+    // Delay runs on the mono voice, then the result feeds every output channel.
+    applyDelay (buffer.getWritePointer (0), numSamples);
+    for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
+        buffer.copyFrom (ch, 0, buffer.getReadPointer (0), numSamples);
 
     // The plugin's MIDI output carries the notes the sequencer produced, so the
     // pattern can be recorded or routed to other instruments in the host.

@@ -94,6 +94,10 @@ public:
     // 0-based index of the step currently being played (for UI highlight), or -1.
     std::atomic<int> playingStep { -1 };
 
+    // Semitone offset applied to the running pattern; set by playing the
+    // keyboard while the sequencer runs (hardware pattern-play transposition).
+    std::atomic<int> seqTranspose { 0 };
+
 private:
     void updateEngineParams();
 
@@ -104,8 +108,15 @@ private:
     void     triggerStepMidi (juce::MidiBuffer& seq, int index, int sampleOffset);
     void     renderVoice (juce::AudioBuffer<float>& buffer,
                           const juce::MidiBuffer& midi, int numSamples);
+    void     applyDelay (float* channel, int numSamples);
 
     acid::TB303Engine engine;
+
+    // --- delay effect (TB-03-style extra) --------------------------------------
+    std::vector<float> delayBuf;    // 2 s circular buffer
+    int                delayWrite = 0;
+
+    juce::Random seqRandom;         // step picker for the Random play mode
 
     double    sampleRate = 44100.0;
     double    seqStepPos    = 0.0;     // absolute position in 16th-note steps

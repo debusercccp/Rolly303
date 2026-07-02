@@ -225,6 +225,12 @@ Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     addKnob (accent, "accent",    "ACCENT");
     addKnob (volume, "volume",    "VOLUME");
 
+    // modern extras row (overdrive + delay, as on the TB-03)
+    addKnob (drive,     "drive",     "OVERDRIVE");
+    addKnob (delayTime, "delaytime", "DELAY TIME");
+    addKnob (delayFb,   "delayfb",   "FEEDBACK");
+    addKnob (delayMix,  "delaymix",  "DELAY MIX");
+
     // waveform slide switch (saw / square)
     waveSwitch.setComponentID ("waveswitch");
     waveSwitch.setSliderStyle (juce::Slider::LinearHorizontal);
@@ -264,6 +270,14 @@ Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     octaveLabel.setColour (juce::Label::textColourId, kSeqText);
     addAndMakeVisible (octaveLabel);
 
+    modeBox.addItemList ({ "Forward", "Reverse", "Ping-Pong", "Random" }, 1);
+    addAndMakeVisible (modeBox);
+    modeAtt = std::make_unique<ComboAttachment> (processor.apvts, "playmode", modeBox);
+    modeLabel.setText ("MODE", juce::dontSendNotification);
+    modeLabel.setFont (juce::Font (11.0f, juce::Font::bold));
+    modeLabel.setColour (juce::Label::textColourId, kSeqText);
+    addAndMakeVisible (modeLabel);
+
     scaleBox.addItemList (acidscale::names(), 1);
     addAndMakeVisible (scaleBox);
     scaleAtt = std::make_unique<ComboAttachment> (processor.apvts, "scale", scaleBox);
@@ -278,14 +292,27 @@ Rolly303Editor::Rolly303Editor (Rolly303Processor& p)
     keyboard.setLowestVisibleKey (36);
     addAndMakeVisible (keyboard);
 
-    // Software cursor: draw our own pointer when the host X server has no
-    // visible hardware cursor. run-linux.sh sets this when it spins up a
-    // bare Xwayland; leave it unset in a DAW so the system cursor is used.
-    softwareCursorEnabled =
-        juce::SystemStats::getEnvironmentVariable ("ROLLY303_SOFTWARE_CURSOR", "0") != "0";
+    // Software cursor: draw our own pointer so the app is usable even when the
+    // X server provides no visible hardware cursor (bare rootful Xwayland,
+    // xwayland-satellite, ...). On the Linux standalone this is ON by default,
+    // because whether the display has a visible cursor can't be detected
+    // reliably; ROLLY303_SOFTWARE_CURSOR=0 forces it off, =1 forces it on
+    // (e.g. for the plugin inside a DAW on such a display).
+    const auto cursorEnv =
+        juce::SystemStats::getEnvironmentVariable ("ROLLY303_SOFTWARE_CURSOR", "auto");
+#if JUCE_LINUX
+    const bool cursorAuto = juce::JUCEApplicationBase::isStandaloneApp();
+#else
+    const bool cursorAuto = false;
+#endif
+    softwareCursorEnabled = cursorEnv == "auto" ? cursorAuto : cursorEnv != "0";
 
     if (softwareCursorEnabled)
     {
+        // Hide the hardware cursor over the editor and every control, so a
+        // desktop that does show one doesn't end up with two pointers.
+        hideHardwareCursor (*this);
+
         addAndMakeVisible (cursorOverlay);
         cursorOverlay.moveTo (getMouseXYRelative());
         juce::Desktop::getInstance().addGlobalMouseListener (this);
@@ -300,6 +327,14 @@ Rolly303Editor::~Rolly303Editor()
         juce::Desktop::getInstance().removeGlobalMouseListener (this);
 
     setLookAndFeel (nullptr);
+}
+
+//==============================================================================
+void Rolly303Editor::hideHardwareCursor (juce::Component& c)
+{
+    c.setMouseCursor (juce::MouseCursor::NoCursor);
+    for (auto* child : c.getChildren())
+        hideHardwareCursor (*child);
 }
 
 //==============================================================================
@@ -328,6 +363,7 @@ void Rolly303Editor::addKnob (Knob& k, const juce::String& paramID, const juce::
     k.label.setText (name, juce::dontSendNotification);
     k.label.setJustificationType (juce::Justification::centred);
     k.label.setFont (juce::Font (10.5f, juce::Font::bold));
+    k.label.setColour (juce::Label::outlineColourId, kInk);   // boxed panel print
     addAndMakeVisible (k.label);
 
     k.attach = std::make_unique<SliderAttachment> (processor.apvts, paramID, k.slider);
@@ -415,29 +451,34 @@ void Rolly303Editor::paint (juce::Graphics& g)
     g.setColour (kCase);
     g.drawRoundedRectangle (face, 6.0f, 1.5f);
 
-    // maker plate, top-left (homage to the hardware's silver name plate)
-    auto plate = juce::Rectangle<float> (face.getX() + 16.0f, face.getY() + 12.0f, 132.0f, 34.0f);
+    // maker logo printed straight on the silver, top-left (photo: Roland logo)
+    g.setColour (kInk);
+    g.setFont (juce::Font (27.0f, juce::Font::bold | juce::Font::italic));
+    g.drawText ("Rolly", juce::Rectangle<float> (face.getX() + 18.0f, face.getY() + 10.0f,
+                                                 110.0f, 30.0f),
+                juce::Justification::centredLeft);
+
+    // model print beside the logo: TB-303 in ink, "Computer Controlled" in red
+    g.setFont (juce::Font (16.0f, juce::Font::bold));
+    g.drawText ("TB-303", juce::Rectangle<float> (face.getX() + 150.0f, face.getY() + 12.0f,
+                                                  90.0f, 18.0f),
+                juce::Justification::centredLeft);
+    g.setColour (kRed);
+    g.setFont (juce::Font (11.5f, juce::Font::bold));
+    g.drawText ("Computer Controlled",
+                juce::Rectangle<float> (face.getX() + 150.0f, face.getY() + 30.0f, 160.0f, 14.0f),
+                juce::Justification::centredLeft);
+
+    // black "Bass Line" plate, top-right (white script on black, as on the panel)
+    auto plate = juce::Rectangle<float> (face.getRight() - 200.0f, face.getY() + 8.0f, 182.0f, 40.0f);
     g.setGradientFill (juce::ColourGradient (juce::Colour (0xff2a2a2e), plate.getTopLeft(),
                                              juce::Colour (0xff0c0c0e), plate.getBottomLeft(), false));
     g.fillRoundedRectangle (plate, 5.0f);
     g.setColour (juce::Colours::black);
     g.drawRoundedRectangle (plate, 5.0f, 1.0f);
     g.setColour (juce::Colour (0xfff2f2f0));
-    g.setFont (juce::Font (21.0f, juce::Font::bold));
-    g.drawText ("Rolly", plate.reduced (10.0f, 0.0f), juce::Justification::centredLeft);
-    g.setColour (kRed);
-    g.setFont (juce::Font (21.0f, juce::Font::bold));
-    g.drawText ("303", plate.reduced (10.0f, 0.0f), juce::Justification::centredRight);
-
-    // "Bass Line" script + TB-303 line, top-right
-    auto brand = face.reduced (18.0f, 10.0f).removeFromRight (220.0f).removeFromTop (44.0f);
-    g.setColour (kInk);
-    g.setFont (juce::Font (32.0f, juce::Font::bold | juce::Font::italic));
-    g.drawText ("Bass Line", brand, juce::Justification::topRight);
-    g.setColour (kInk.withAlpha (0.85f));
-    g.setFont (juce::Font (12.0f, juce::Font::bold));
-    g.drawText ("TB-303   Computer Controlled",
-                brand.translated (0.0f, 30.0f), juce::Justification::topRight);
+    g.setFont (juce::Font (26.0f, juce::Font::bold | juce::Font::italic));
+    g.drawText ("Bass Line", plate.reduced (14.0f, 0.0f), juce::Justification::centred);
 
     // thin print line under the title band
     g.setColour (kInk.withAlpha (0.45f));
@@ -508,7 +549,8 @@ void Rolly303Editor::resized()
         }
     }
 
-    // Lower-left control zone: TEMPO knob + WAVEFORM switch (panel's SHUFFLE area)
+    // Lower-left control zone: TEMPO knob + WAVEFORM switch (panel's SHUFFLE
+    // area), then the modern-extras knobs (overdrive + delay) beside them.
     faceBody.removeFromTop (6);
     {
         auto tempoCol = faceBody.removeFromLeft (96);
@@ -519,6 +561,16 @@ void Rolly303Editor::resized()
         auto waveCol = faceBody.removeFromLeft (130);
         waveLabel.setBounds (waveCol.removeFromTop (16));
         waveSwitch.setBounds (waveCol.withSizeKeepingCentre (waveCol.getWidth(), 34));
+
+        faceBody.removeFromLeft (16);
+        Knob* fx[] { &drive, &delayTime, &delayFb, &delayMix };
+        const int fxW = faceBody.getWidth() / (int) std::size (fx);
+        for (auto* k : fx)
+        {
+            auto col = faceBody.removeFromLeft (fxW);
+            k->label.setBounds (col.removeFromTop (16).reduced (8, 0));
+            k->slider.setBounds (col.reduced (3));
+        }
     }
 
     area.removeFromTop (8);
@@ -529,21 +581,24 @@ void Rolly303Editor::resized()
 
     auto transport = seq.removeFromTop (34);
     transport.removeFromLeft (70);                       // clear the PATTERN print
-    playButton.setBounds (transport.removeFromLeft (96));
+    playButton.setBounds (transport.removeFromLeft (92));
     transport.removeFromLeft (8);
-    syncButton.setBounds (transport.removeFromLeft (72));
-    transport.removeFromLeft (24);
-    rootLabel.setBounds (transport.removeFromLeft (40));
-    rootBox.setBounds (transport.removeFromLeft (64).reduced (0, 5));
-    transport.removeFromLeft (16);
-    octaveLabel.setBounds (transport.removeFromLeft (54));
-    octaveSlider.setBounds (transport.removeFromLeft (96).reduced (0, 5));
+    syncButton.setBounds (transport.removeFromLeft (64));
+    transport.removeFromLeft (14);
+    modeLabel.setBounds (transport.removeFromLeft (40));
+    modeBox.setBounds (transport.removeFromLeft (92).reduced (0, 5));
+    transport.removeFromLeft (12);
+    rootLabel.setBounds (transport.removeFromLeft (36));
+    rootBox.setBounds (transport.removeFromLeft (56).reduced (0, 5));
+    transport.removeFromLeft (12);
+    octaveLabel.setBounds (transport.removeFromLeft (50));
+    octaveSlider.setBounds (transport.removeFromLeft (84).reduced (0, 5));
 
-    transport.removeFromLeft (20);
-    scaleLabel.setBounds (transport.removeFromLeft (44));
-    scaleBox.setBounds (transport.removeFromLeft (124).reduced (0, 5));
+    transport.removeFromLeft (12);
+    scaleLabel.setBounds (transport.removeFromLeft (42));
+    scaleBox.setBounds (transport.removeFromLeft (104).reduced (0, 5));
 
-    randomizeButton.setBounds (transport.removeFromRight (110).reduced (0, 3));
+    randomizeButton.setBounds (transport.removeFromRight (104).reduced (0, 3));
 
     seq.removeFromTop (6);
 

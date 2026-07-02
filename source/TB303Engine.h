@@ -279,6 +279,7 @@ public:
         float envMod      = 0.6f;   // 0..1  filter env depth
         float decayMs     = 400.0f; // MEG decay (hardware: 200..2000 ms)
         float accent      = 0.6f;   // 0..1  accent intensity
+        float drive       = 0.0f;   // 0..1  overdrive amount (TB-03-style extra)
         float volume      = 0.8f;   // linear gain
     };
 
@@ -386,6 +387,17 @@ public:
         // Accent adds the (fast-decay) MEG to the VCA level: the accent "punch".
         const float vca = a * (1.0f + 1.3f * accAmt * fe);
         s = (float) postHp.hp (s * vca);
+
+        // Overdrive (a TB-03 / plug-in era extra, not on the 1982 hardware):
+        // a tanh waveshaper blended in by the DRIVE knob, gain-compensated so
+        // full drive saturates rather than just getting louder.
+        if (params.drive > 0.001f)
+        {
+            const float pre = 1.0f + 9.0f * params.drive;
+            const float wet = std::tanh (s * pre) * (0.9f / std::tanh (pre * 0.9f));
+            s += params.drive * (wet - s);
+        }
+
         return s * params.volume;
     }
 

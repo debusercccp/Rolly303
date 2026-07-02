@@ -147,6 +147,7 @@ private:
     void mouseEnter (const juce::MouseEvent&) override;
     void mouseExit  (const juce::MouseEvent&) override;
     void updateSoftwareCursor (const juce::MouseEvent&);
+    static void hideHardwareCursor (juce::Component&);
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
@@ -167,6 +168,9 @@ private:
     // synth controls (panel order of the original: tempo, waveform,
     // tuning, cut off freq, resonance, env mod, decay, accent, volume)
     Knob tempo, tuning, cutoff, reso, envmod, decay, accent, volume;
+
+    // modern extras (TB-03-style): overdrive + delay
+    Knob drive, delayTime, delayFb, delayMix;
     juce::Slider waveSwitch;
     juce::Label  waveLabel;
     std::unique_ptr<SliderAttachment> waveAttach;
@@ -175,11 +179,11 @@ private:
     juce::ToggleButton playButton { "RUN/STOP" }, syncButton { "SYNC" };
     juce::TextButton   randomizeButton { "RANDOMIZE" };
     juce::Slider       octaveSlider;
-    juce::ComboBox     rootBox, scaleBox;
-    juce::Label        rootLabel, octaveLabel, scaleLabel;
+    juce::ComboBox     rootBox, scaleBox, modeBox;
+    juce::Label        rootLabel, octaveLabel, scaleLabel, modeLabel;
     std::unique_ptr<ButtonAttachment> playAtt, syncAtt;
     std::unique_ptr<SliderAttachment> octaveAtt;
-    std::unique_ptr<ComboAttachment>  rootAtt, scaleAtt;
+    std::unique_ptr<ComboAttachment>  rootAtt, scaleAtt, modeAtt;
 
     // sequencer pattern editor (piano roll)
     StepPianoRoll pianoRoll;

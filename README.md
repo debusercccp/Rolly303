@@ -17,6 +17,9 @@ A standalone synthesizer and **VST3 plugin** that emulates the **Roland TB‑303
 - **Built‑in 16‑step sequencer** with a **piano‑roll pattern editor** — set each step's note on the keyboard grid, with **per‑step accent, slide and rest** — the other half of what makes a 303 a 303.
 - **Scale highlighting** — pick a **root** and one of **10 scales** (Major, Minor, Harmonic / Melodic Minor, and the Dorian, Phrygian, Lydian, Mixolydian, Locrian modes, plus Chromatic). The piano roll tints the in‑scale rows and the tonic, so you stay in key while writing patterns.
 - **Randomize** — one click rolls a fresh acid pattern, drawing its notes only from the selected scale.
+- **Play modes** — run the pattern **Forward**, **Reverse**, **Ping‑Pong** or **Random**, like the modern TB‑03 / plug‑in recreations.
+- **Keyboard transposition** — while the sequencer runs, playing the keyboard (on‑screen or MIDI) **transposes the whole pattern** instead of playing notes, just like the hardware's pattern‑play mode (C3 = no transpose).
+- **Overdrive & Delay** — the modern‑recreation extras: a gain‑compensated tanh overdrive on the voice and a feedback delay (time / feedback / mix). Both default to off for the stock 1982 sound.
 - **Tuning** (±12 semitones), **Cutoff**, **Resonance**, **Env Mod**, **Decay**, **Accent**, **Volume**.
 - **On‑screen keyboard** in the standalone app, plus full MIDI input in any DAW.
 - Cross‑platform: **Windows** and **Linux**, **Standalone + VST3**.
@@ -38,6 +41,10 @@ Turn **Resonance** up high, set **Cutoff** fairly low, raise **Env Mod**, and pl
 | Decay       | 200…2000 ms    | Filter‑envelope decay (hardware pot range). Accents override it.    |
 | Accent      | 0…1            | Intensity of accented notes (velocity ≥ ~80).                       |
 | Volume      | 0…1            | Output level.                                                        |
+| Overdrive   | 0…1            | Tanh saturation on the voice (TB‑03‑style extra). 0 = clean/bypass. |
+| Delay Time  | 60…1000 ms     | Delay line time.                                                     |
+| Feedback    | 0…0.9          | Delay regeneration.                                                  |
+| Delay Mix   | 0…1            | How much delayed signal is added (0 = delay off).                   |
 
 ---
 
@@ -53,6 +60,7 @@ itself, so it works in the **standalone app and in any DAW**.
 | **RUN**    | Start / stop the pattern. When off, the synth plays from MIDI / the on‑screen keyboard instead. |
 | **SYNC**   | Lock tempo **and bar position** to your DAW's transport. Leave off to use the internal Tempo knob (and for the standalone app). |
 | **TEMPO**  | Internal tempo in BPM (used when SYNC is off). |
+| **MODE**   | Pattern play direction: **Forward**, **Reverse**, **Ping‑Pong** (bounces between step 1 and 16), or **Random** (a random step each 16th). |
 | **ROOT**   | The root note the pattern is built from (C…B). The piano‑roll keyboard and the scale highlight follow it. |
 | **OCTAVE** | Shift the whole pattern up/down by octaves. |
 | **SCALE**  | The scale used to highlight in‑key rows in the piano roll and to constrain **RANDOMIZE**. 10 choices: Chromatic, Major, Minor, Harmonic Minor, Melodic Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian. |
@@ -309,6 +317,7 @@ rolly303/
 | Linux build errors about missing headers | Re‑check the `apt install` list above; ALSA/X11/freetype `-dev` packages are required. |
 | DAW doesn't see the plugin | Confirm the `.vst3` is in the correct folder and trigger a plugin **rescan**. VST3 only (no VST2). |
 | `Authorization required, but no authorization protocol specified` and no window (Linux) | You're on a pure‑Wayland compositor with no X server. Use `./run-linux.sh`, or install `xwayland-satellite`. See *Linux on a pure‑Wayland compositor* above. |
+| No mouse cursor over the window (Linux) | The standalone draws its own software cursor by default on Linux (some Xwayland setups provide no visible pointer). If it's ever missing, force it with `ROLLY303_SOFTWARE_CURSOR=1`; set `0` to disable it. For the VST3 inside a DAW it is off unless forced with `=1`. |
 | No sound in standalone | Open audio settings and select a valid output device / sample rate. |
 | Crackle at very high resonance + cutoff | Expected near self‑oscillation; back off Resonance slightly. |
 
