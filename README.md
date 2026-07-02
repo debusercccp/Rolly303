@@ -294,18 +294,24 @@ and you can run `Rolly303` directly with no wrapper.
 
 ```
 rolly303/
-├── CMakeLists.txt          # Build script (fetches JUCE, defines the plugin)
+├── .github/workflows/build.yml  # CI: builds Linux+Windows, runs the tests, uploads binaries
+├── CMakeLists.txt          # Build script (fetches JUCE, defines the plugin + tests)
 ├── README.md               # This file
 ├── run-linux.sh            # Launches the built standalone on Linux (builds it if missing, handles pure-Wayland)
 ├── run-win.bat             # Windows installer: builds if needed, installs app + VST3, shortcuts, uninstaller
 ├── uninstall-win.bat       # Windows uninstaller (a copy is installed next to the app)
-└── source/
-    ├── TB303Engine.h       # The DSP: oscillator, ladder filter, envelopes, voice
-    ├── PluginProcessor.h
-    ├── PluginProcessor.cpp # Parameters, MIDI handling, audio rendering
-    ├── PluginEditor.h
-    └── PluginEditor.cpp    # The 303‑style GUI + on‑screen keyboard
+├── source/
+│   ├── TB303Engine.h       # The DSP: oscillator, ladder filter, envelopes, voice
+│   ├── PluginProcessor.h
+│   ├── PluginProcessor.cpp # Parameters, MIDI handling, audio rendering
+│   ├── PluginEditor.h
+│   └── PluginEditor.cpp    # The 303‑style GUI + on‑screen keyboard
+└── tests/
+    ├── engine_tests.cpp    # Voice regression tests (slide/stuck-note cases)
+    └── sequencer_tests.cpp # End-to-end: real sequencer + voice, analyses the audio
 ```
+
+Run the tests locally with `ctest --test-dir build --output-on-failure` after building.
 
 ---
 

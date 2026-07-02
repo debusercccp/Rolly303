@@ -58,3 +58,26 @@ target_link_libraries(Rolly303
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# Regression tests — run with:  ctest --test-dir build -C Release
+# ---------------------------------------------------------------------------
+enable_testing()
+
+# DSP voice tests (header-only engine, no JUCE required)
+add_executable(EngineTests tests/engine_tests.cpp)
+set_target_properties(EngineTests PROPERTIES CXX_STANDARD 17)
+target_include_directories(EngineTests PRIVATE source)
+add_test(NAME EngineTests COMMAND EngineTests)
+
+# End-to-end sequencer test: links the plugin's shared code and renders audio.
+# It compiles against the same includes/defines as the shared-code target
+# (JuceHeader.h, JUCE modules, plugin macros) and links its static library.
+add_executable(SequencerTests tests/sequencer_tests.cpp)
+target_include_directories(SequencerTests PRIVATE
+    source
+    $<TARGET_PROPERTY:Rolly303,INCLUDE_DIRECTORIES>)
+target_compile_definitions(SequencerTests PRIVATE
+    $<TARGET_PROPERTY:Rolly303,COMPILE_DEFINITIONS>)
+target_link_libraries(SequencerTests PRIVATE Rolly303)
+add_test(NAME SequencerTests COMMAND SequencerTests)

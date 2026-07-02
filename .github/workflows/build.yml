@@ -1,0 +1,75 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Linux (Standalone + VST3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config \
+            libasound2-dev libjack-jackd2-dev \
+            libfreetype6-dev libfontconfig1-dev \
+            libx11-dev libxext-dev libxinerama-dev libxrandr-dev \
+            libxcursor-dev libxcomposite-dev libgl1-mesa-dev xvfb
+
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-8.0.4-${{ runner.os }}
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Run regression tests
+        run: xvfb-run -a ctest --test-dir build --output-on-failure
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rolly303-linux
+          path: |
+            build/Rolly303_artefacts/Release/VST3/
+            build/Rolly303_artefacts/Release/Standalone/
+
+  build-windows:
+    name: Windows (Standalone + VST3)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-8.0.4-${{ runner.os }}
+
+      - name: Configure
+        run: cmake -B build
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Run regression tests
+        run: ctest --test-dir build --output-on-failure -C Release
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rolly303-windows
+          path: |
+            build/Rolly303_artefacts/Release/VST3/
+            build/Rolly303_artefacts/Release/Standalone/
